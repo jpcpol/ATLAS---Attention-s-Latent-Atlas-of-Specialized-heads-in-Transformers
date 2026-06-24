@@ -372,8 +372,11 @@ def run_exp001(
         enc["labels"] = labels
         return enc
 
-    def make_loader(split: str, batch_size: int = 4) -> DataLoader:
-        tokenized = ds[split].map(
+    def make_loader(split: str, batch_size: int = 4, max_examples: int | None = None) -> DataLoader:
+        subset = ds[split]
+        if max_examples is not None:
+            subset = subset.select(range(min(max_examples, len(subset))))
+        tokenized = subset.map(
             tokenize_fn,
             batched=True,
             remove_columns=["text"],
@@ -381,8 +384,10 @@ def run_exp001(
         tokenized.set_format("torch")
         return DataLoader(tokenized, batch_size=batch_size, shuffle=(split == "train"))
 
-    calib_loader = make_loader("train", batch_size=4)
-    eval_loader = make_loader("validation", batch_size=4)
+    # Calibration: only map enough examples to cover n_calib_samples batches
+    calib_examples = n_calib_samples * 8  # generous headroom for empty/short texts
+    calib_loader = make_loader("train", batch_size=4, max_examples=calib_examples)
+    eval_loader = make_loader("validation", batch_size=4, max_examples=800)
 
     # ── Fisher estimation ──────────────────────────────────────────────────
     print(f"[EXP-001] Estimating diagonal Fisher ({n_calib_samples} samples)...")
