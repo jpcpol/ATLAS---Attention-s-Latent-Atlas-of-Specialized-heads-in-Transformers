@@ -66,7 +66,7 @@ NQP/
 | Componente | Estado |
 |---|---|
 | Formalización del operador $\hat{P}$ | 🟡 Borrador inicial |
-| Implementación Fisher diagonal (GPT-2) | ⬜ Pendiente |
+| Implementación Fisher diagonal (GPT-2) | 🟢 Implementado en `src/fisher.py` |
 | Validación empírica NQP-C1 | ⬜ Pendiente |
 | Comparación vs GPTQ / QuIP# | ⬜ Pendiente |
 | Paper draft | ⬜ Pendiente |

@@ -10,7 +10,7 @@ respecto a cuantización estándar en un modelo controlado (GPT-2 124M).
 
 **Comparadores:** INT8 estándar, GPTQ 4-bit, QuIP 4-bit.
 
-**Estado:** pendiente de implementación de `src/fisher.py`.
+**Estado:** `src/fisher.py` implementado. Listo para ejecutar con `python src/fisher.py --bits 8 --n-calib 256`.
 
 ---
 
