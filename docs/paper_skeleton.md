@@ -90,19 +90,22 @@ sentido descriptivo (cartas locales), NO fiber-bundle formal (sin mapas de trans
 
 Modelo mínimo consistente: ε = ⋃_h M_h, con dim(M_h)≈7, embeddings no-alineables, unión ~12-17D.
 
-### R-STABILITY — La dimensión del manifold es escala-invariante (Q04-lite)
+### R-STABILITY — Dimensión Y no-alineación son escala-invariantes (Q04-lite, Q05d-scale)
 Protocolo controlado (N idéntico, mismas cabezas/capas) en gpt2/medium/large (124M→774M):
 
-| modelo | capas | dim_int | dim_lin |
-|---|---|---|---|
-| small | 12 | 7.2 ± 1.1 | 31.6 |
-| medium | 24 | 8.1 ± 0.8 | 30.5 |
-| large | 36 | 7.4 ± 0.7 | 28.0 |
+| modelo | capas | dim_int | dim_lin | inter-head overlap | centered_dim |
+|---|---|---|---|---|---|
+| small | 12 | 7.2 ± 1.1 | 31.6 | 0.285 | 7.1 |
+| medium | 24 | 8.1 ± 0.8 | 30.5 | 0.282 | 6.7 |
+| large | 36 | 7.4 ± 0.7 | 28.0 | 0.281 | 5.7 |
 
-σ_entre-modelos (0.9) ≈ σ_entre-cabezas (0.8) → **scale-invariant within the GPT-2 family**.
-6× más params, misma geometría residual (~7-8D). Esto ELEVA R-MANIFOLD: el objeto no solo existe,
-es estable. (No es el resultado central por sí solo — un reviewer diría "la invarianza no
-importa si el objeto no existe primero".)
+**Dos invariantes a escala:** (a) dim intrínseca ~7 (σ_entre-modelos 0.9 ≈ σ_entre-cabezas 0.8);
+(b) **no-alineación inter-cabeza overlap ≈ 0.28, spread 0.004 a través de 6× params.** Ambos
+ELEVAN R-ATLAS: el atlas de manifolds no-alineados no solo existe, es estable a escala (within
+GPT-2 family). centered_dim ≈ dim_int por modelo confirma que el ~12.7 de Q05d venía de mezclar
+capas; con 1 capa controlada, la no-alineación es entre cabezas de la misma capa.
+**Matiz honesto:** dim_int decrece levemente y monótono (6.7→6.1→5.3, dentro del ruido ±1.1);
+la no-alineación NO (es plana). El invariante robusto es el overlap.
 
 ### R-LINEAR — Por qué el manifold es no-lineal: refutamos lo obvio (Q02, Q03) [negativos que fortalecen]
 - Q02: reemplazo por Top-k (selección dura) destruye PPL (+7.7 solo en L11). Descarta la
