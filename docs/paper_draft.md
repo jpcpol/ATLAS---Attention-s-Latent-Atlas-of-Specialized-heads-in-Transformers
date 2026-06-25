@@ -61,18 +61,20 @@ subspace overlap is ≈ 0.283 and is invariant to a 6× change in model scale.
 1. A decomposition and measurement protocol for the attention residual ε, with synthetic
    validation of every estimator used (intrinsic dimension, subspace overlap).
 2. The central empirical result: residual attention is a **non-aligned, scale-invariant atlas of
-   head-specific manifolds** (inter-head overlap O_h ≈ 0.283 ± 0.002, constant across GPT-2
-   small/medium/large).
-3. Explicit refutation of the two obvious linear compression stories (sparse selection, global
-   low-rank), establishing that the residual structure is genuinely nonlinear.
+   head-specific manifolds** (inter-head overlap O_h ≈ 0.28, 95% CI [0.27, 0.29], statistically
+   indistinguishable across GPT-2 small/medium/large and across corpora).
+3. Explicit refutation of the obvious compression stories — sparse selection, global low-rank, and
+   (a clean negative we contribute) a *per-head nonlinear autoencoder*, which matches but does not
+   beat linear PCA at the intrinsic dimension. The residual is geometrically low-dimensional but not
+   functionally compressible by these means.
 4. A two-layer account separating a **scale-invariant geometric micro-structure** from
    **capacity-dependent macroscopic thermodynamics** (softmax-as-Boltzmann phase structure;
    crystallization depth L_c, which is *not* scale-invariant). As a byproduct, von Neumann entropy
    of the per-head density matrix is a cheap, calibrated proxy for predictive uncertainty.
 
 **Why this matters.** A stable geometric atlas constrains the effective degrees of freedom
-available to attention and provides a new representation-level object for studying scaling,
-specialization, and potential compression mechanisms.
+available to attention and provides a new representation-level object for studying scaling and
+head specialization — independently of whether it yields a compression mechanism (§3.7).
 
 **Scope and anti-overclaim.** All scale-invariance claims are established *within the GPT-2 family
 and a fixed training distribution*, not across architectures. "Atlas" is descriptive; we do not
@@ -261,6 +263,23 @@ is not scale-invariant** (≈ 2 / 1 / 9 for small/medium/large; gpt2-large has a
 phase). The geometric invariants of §3.1–§3.3 and this macroscopic, capacity-dependent observable
 are of different natures — the core of our two-layer account.
 
+### 3.7 (Honest negative) The manifold is geometric, but not functionally compressible
+
+The low intrinsic dimension (§3.2) raises a functional question: can a **per-head nonlinear
+autoencoder** (64 → 7 → 64, trained to reconstruct ε) repair the perplexity that hard Top-1
+destroys, and beat the linear PCA projection of the same rank? It cannot. Replacing ε with the AE
+reconstruction on the three deepest layers recovers **55.8%** of the Top-1 loss — essentially
+identical to the **55.9%** recovered by a linear rank-7 PCA projection (held-out reconstruction
+FVU ≈ 0.38). The nonlinear bottleneck buys nothing over the linear one at equal dimension.
+
+We read this carefully. The intrinsic dimension ≈ 7 (TwoNN) is a *local* estimate of manifold
+curvature; it does **not** imply a single global 7-dimensional parametrization that an autoencoder
+can recover. The residual manifold is therefore *real geometrically* (§3.1–§3.2) but **not, with this
+method, functionally compressible** below its linear rank. This bounds the practical reading of the
+result and is consistent with §3.5: the residual's information is genuinely spread across many
+value-space directions. We report it as a clean negative rather than leaving compression as an
+open promise.
+
 ---
 
 ## 4. Interpretation: a two-layer account
@@ -334,21 +353,27 @@ metric carries the claim.
   structure. We therefore do not claim a formal fiber bundle. O_h ≠ 1 is necessary but not
   sufficient for such a structure.
 - **Dimension trend is exploratory.** The §3.4 decrease is within within-head variability.
-- **Functional exploitation untested.** Whether the per-head manifold can be *used* for compression
-  (a per-head nonlinear autoencoder) is left to future work.
+- **No demonstrated functional exploitation.** A per-head nonlinear autoencoder at the intrinsic
+  dimension does *not* beat linear PCA (§3.7); the geometric manifold is not, with this method,
+  functionally compressible. We do not claim compression as an application.
 
 ---
 
 ## 7. Future Work
 
-**Functional exploitation of the manifold atlas (Q06).** Because the structure is per-head and the
-charts are non-aligned, any exploitation must be **per-head or routing-based, not a global
-autoencoder**: e.g. a per-head nonlinear encoder 64 → ~7 → 64 on ε, replacing ε with its
-reconstruction and measuring ΔPPL. The geometric checks of §3.2 (connectivity, smoothness) were run
-precisely so that such an encoder tests a falsifiable nonlinear hypothesis rather than assuming it.
-Other open directions: cross-architecture generalization; measuring actual transition maps to test
-whether the atlas can be promoted to a formal fiber-bundle claim; mutual information between heads;
-and the renormalization-group view of depth.
+**Beyond per-head autoencoding.** Our functional test (§3.7) is negative: a per-head AE at the
+intrinsic dimension matches but does not beat linear PCA. This rules out the *simplest* exploitation,
+not all of them. Open directions on the functional side: routing/mixture parametrizations that share
+structure *across* heads despite their non-aligned charts; exploitation that targets the manifold's
+*global* geometry rather than a per-point bottleneck; and asking whether the residual is better
+described as high-entropy integration noise (cf. §3.5) than as a compressible code at all.
+
+**Structural and external validity.** (i) Cross-architecture generalization (Llama, Mistral): is the
+~0.28 non-alignment a GPT-2-family property or universal? (ii) Promoting "atlas" toward a formal
+claim by *measuring transition maps* between head charts and their differentiable consistency — the
+step we deliberately do not take here. (iii) Mutual information between heads as an
+information-theoretic complement to the geometric overlap. (iv) A renormalization-group view of the
+depth-wise crystallization (§3.6).
 
 ---
 
