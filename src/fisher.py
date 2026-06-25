@@ -26,6 +26,19 @@ import torch.nn as nn
 from torch import Tensor
 
 
+# Parameter name patterns that should NOT be quantized via NQP.
+# Embeddings, LayerNorm, and biases stay in FP32 — standard practice in
+# GPTQ/AWQ/QuIP, which quantize only the large linear weight matrices.
+_NQP_SKIP_PATTERNS = ("wte", "wpe", "ln_", "ln_f", ".bias")
+
+
+def _should_quantize(name: str, w: Tensor) -> bool:
+    """Quantize only 2D linear/conv weight matrices, not embeddings/norms/biases."""
+    if w.dim() < 2:
+        return False
+    return not any(pat in name for pat in _NQP_SKIP_PATTERNS)
+
+
 # ---------------------------------------------------------------------------
 # Fisher diagonal estimator
 # ---------------------------------------------------------------------------
@@ -101,6 +114,12 @@ def estimate_fisher_diagonal(
         if param.requires_grad:
             accum[name] = torch.zeros_like(param.data)
 
+    try:
+        from tqdm import tqdm
+        pbar = tqdm(total=n_samples, desc="Fisher", unit="sample")
+    except ImportError:
+        pbar = None
+
     seen = 0
     for batch in dataloader:
         if seen >= n_samples:
@@ -118,7 +137,13 @@ def estimate_fisher_diagonal(
             if param.grad is not None:
                 accum[name] += param.grad.detach() ** 2
 
-        seen += input_ids.shape[0]
+        bs = input_ids.shape[0]
+        seen += bs
+        if pbar is not None:
+            pbar.update(bs)
+
+    if pbar is not None:
+        pbar.close()
 
     n = max(seen, 1)
     diag = {name: v / n for name, v in accum.items()}
@@ -182,6 +207,10 @@ class NQPQuantizer:
         Q̂  = Q_i(W̃_i) per component with s_i from Fisher
         Ŵ  = P̂⁻¹ @ Q̂  →  for diagonal Fisher, Ŵ = Q̂
         """
+        if not _should_quantize(name, w):
+            # Embeddings, LayerNorm, biases stay in FP32 (not quantized)
+            return w.clone()
+
         if name not in self.fisher.diag:
             # Fall back to standard quantization for params without Fisher estimate
             return quantize_standard(w, self.bits)
@@ -257,6 +286,10 @@ def compare_quantization(
     with torch.no_grad():
         for name, param in model.named_parameters():
             w = param.data
+            # Only report on params NQP actually quantizes — comparing FP32-kept
+            # params would show a spurious 0-vs-0 tie and dilute the signal.
+            if not _should_quantize(name, w):
+                continue
             w_std = quantize_standard(w, bits)
             w_nqp = quantizer.quantize_weight(name, w)
             err_std = quant_error_l2(w, w_std)
@@ -281,34 +314,48 @@ def compare_quantization(
 # Perplexity evaluation
 # ---------------------------------------------------------------------------
 
-def compute_perplexity(
+def compute_perplexity_blocks(
     model: nn.Module,
-    dataloader: Iterable,
+    token_ids: Tensor,
+    seq_len: int = 512,
     device: str | torch.device = "cpu",
-    max_batches: int | None = None,
+    max_blocks: int | None = None,
 ) -> float:
     """
-    Compute perplexity = exp(mean cross-entropy loss) over the dataloader.
+    Compute perplexity over contiguous (non-padded) blocks of a long token stream.
+
+    This is the standard WikiText PPL protocol: concatenate the whole corpus,
+    slice into back-to-back windows of `seq_len`, and average cross-entropy over
+    real tokens only. No padding → no spurious EOS loss inflating the metric.
+
+    PPL = exp( Σ_blocks loss_b * n_b  /  Σ_blocks n_b )
+    where loss_b is the mean shifted CE over the block and n_b = seq_len - 1.
     """
     model.eval()
     model.to(device)
 
-    total_loss = 0.0
+    n_tokens_total = token_ids.numel()
+    n_blocks = n_tokens_total // seq_len
+    if max_blocks is not None:
+        n_blocks = min(n_blocks, max_blocks)
+
+    total_nll = 0.0
     total_tokens = 0
 
     with torch.no_grad():
-        for i, batch in enumerate(dataloader):
-            if max_batches is not None and i >= max_batches:
-                break
-            input_ids = batch["input_ids"].to(device)
-            labels = batch.get("labels", input_ids).to(device)
-            outputs = model(input_ids=input_ids, labels=labels)
-            n_tokens = (labels != -100).sum().item()
-            total_loss += outputs.loss.item() * n_tokens
-            total_tokens += n_tokens
+        for b in range(n_blocks):
+            block = token_ids[b * seq_len:(b + 1) * seq_len].unsqueeze(0).to(device)
+            outputs = model(input_ids=block, labels=block)
+            loss = outputs.loss.item()
+            if not math.isfinite(loss):
+                # Skip degenerate blocks rather than poisoning the whole metric
+                continue
+            n_pred = seq_len - 1  # HF shifts internally: seq_len-1 predicted positions
+            total_nll += loss * n_pred
+            total_tokens += n_pred
 
-    avg_loss = total_loss / max(total_tokens, 1)
-    return math.exp(avg_loss)
+    avg_nll = total_nll / max(total_tokens, 1)
+    return math.exp(avg_nll)
 
 
 # ---------------------------------------------------------------------------
@@ -345,6 +392,14 @@ def run_exp001(
         ) from e
 
     torch.manual_seed(seed)
+
+    # Bound CPU threads to avoid oversubscription (multiple processes / hyperthreads
+    # fighting over cores tanks throughput). Use physical cores, capped at 8.
+    if str(device) == "cpu":
+        import os
+        n_threads = min(8, os.cpu_count() or 4)
+        torch.set_num_threads(n_threads)
+        print(f"[EXP-001] torch threads = {n_threads}")
 
     print("[EXP-001] Loading GPT-2 small...")
     tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
@@ -384,10 +439,17 @@ def run_exp001(
         tokenized.set_format("torch")
         return DataLoader(tokenized, batch_size=batch_size, shuffle=(split == "train"))
 
-    # Calibration: only map enough examples to cover n_calib_samples batches
+    # Calibration loader (padded, masked) — fine for Fisher since padding is -100.
     calib_examples = n_calib_samples * 8  # generous headroom for empty/short texts
     calib_loader = make_loader("train", batch_size=4, max_examples=calib_examples)
-    eval_loader = make_loader("validation", batch_size=4, max_examples=800)
+
+    # Evaluation: build ONE contiguous token stream (standard WikiText PPL protocol).
+    # No padding — concatenate validation text and slice into back-to-back blocks.
+    print("[EXP-001] Building contiguous eval token stream...")
+    eval_text = "\n\n".join(t for t in ds["validation"]["text"] if t.strip())
+    eval_ids = tokenizer(eval_text, return_tensors="pt")["input_ids"].squeeze(0)
+    print(f"  eval stream: {eval_ids.numel()} tokens "
+          f"({eval_ids.numel() // 512} blocks of 512)")
 
     # ── Fisher estimation ──────────────────────────────────────────────────
     print(f"[EXP-001] Estimating diagonal Fisher ({n_calib_samples} samples)...")
@@ -397,18 +459,21 @@ def run_exp001(
 
     # ── Baseline PPL (FP32) ────────────────────────────────────────────────
     print("[EXP-001] Computing FP32 perplexity...")
-    ppl_fp32 = compute_perplexity(model, eval_loader, device=device, max_batches=n_eval_batches)
+    ppl_fp32 = compute_perplexity_blocks(model, eval_ids, device=device, max_blocks=n_eval_batches)
     print(f"  PPL FP32  = {ppl_fp32:.2f}")
 
     # ── Standard quantization ──────────────────────────────────────────────
+    # Apply the SAME skip filter as NQP so the comparison is apples-to-apples:
+    # both quantize only linear weight matrices, keeping embeddings/norms in FP32.
     import copy
     print(f"[EXP-001] Quantizing INT{bits} standard...")
     model_std = copy.deepcopy(model)
     with torch.no_grad():
-        for _, param in model_std.named_parameters():
-            param.data = quantize_standard(param.data, bits)
+        for name, param in model_std.named_parameters():
+            if _should_quantize(name, param.data):
+                param.data = quantize_standard(param.data, bits)
 
-    ppl_std = compute_perplexity(model_std, eval_loader, device=device, max_batches=n_eval_batches)
+    ppl_std = compute_perplexity_blocks(model_std, eval_ids, device=device, max_blocks=n_eval_batches)
     print(f"  PPL INT{bits} std = {ppl_std:.2f}")
 
     # ── NQP quantization ───────────────────────────────────────────────────
@@ -416,7 +481,7 @@ def run_exp001(
     quantizer = NQPQuantizer(fisher, bits=bits)
     model_nqp = quantizer.quantize_model(model)
 
-    ppl_nqp = compute_perplexity(model_nqp, eval_loader, device=device, max_batches=n_eval_batches)
+    ppl_nqp = compute_perplexity_blocks(model_nqp, eval_ids, device=device, max_blocks=n_eval_batches)
     print(f"  PPL NQP   = {ppl_nqp:.2f}")
 
     # ── Per-layer error comparison ─────────────────────────────────────────
