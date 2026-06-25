@@ -56,8 +56,14 @@ NQP/
 
 ## Conjeturas activas
 
-- **NQP-C1:** $\hat{P}$ óptimo lleva el error de cuantización a $\varepsilon_{\text{NQP}} \ll \varepsilon_{\text{std}}$ para cualquier presupuesto de bits.
-- **NQP-C2 (fuerte):** la cuantización en base natural con $b$ bits puede superar FP32 sin cuantización en tareas donde la distribución de calibración es representativa.
+- **NQP-C1 (cuantización):** ❌ *Refutada empíricamente* (2026-06-24). La base de Fisher de
+  activaciones no supera a GPTQ+AWQ+QuIP; la analogía con "medir en la base del Hamiltoniano"
+  resultó metafórica (Fisher de activaciones es rango ~2). Ver `experiments/ROADMAP.md`.
+- **NQP-U1 (incertidumbre):** 🟢 *Conjetura activa principal.* Existe un principio de
+  incertidumbre entre precisión de pesos y activaciones: si $[\hat{P}_W,\hat{P}_A]\neq 0$,
+  entonces $\varepsilon_W \cdot \varepsilon_A \geq c$. Esta es la parte con estructura cuántica
+  **literal** (observables que no conmutan). Ver `theory/uncertainty_principle.md`.
+- **NQP-C2:** congelada (dependía de C1).
 
 ---
 
@@ -65,10 +71,11 @@ NQP/
 
 | Componente | Estado |
 |---|---|
-| Formalización del operador $\hat{P}$ | 🟡 Borrador inicial |
-| Implementación Fisher diagonal (GPT-2) | 🟢 Implementado en `src/fisher.py` |
-| Validación empírica NQP-C1 | ⬜ Pendiente |
-| Comparación vs GPTQ / QuIP# | ⬜ Pendiente |
+| Cuantización NQP (C1) | ❌ Refutada — colapsa a GPTQ+AWQ+QuIP |
+| Implementaciones EXP-001 / A-G4 | 🟢 `src/fisher.py`, `src/fisher_block.py` (resultados negativos documentados) |
+| Formalización principio incertidumbre (U1) | 🟢 `theory/uncertainty_principle.md` |
+| EXP-U01 (medir $[\hat{P}_W,\hat{P}_A]$) | 🟡 `src/uncertainty.py` — en ejecución |
+| EXP-U02 (frontera de Pareto $\varepsilon_W$/$\varepsilon_A$) | ⬜ Pendiente de U1a |
 | Paper draft | ⬜ Pendiente |
 
 ---

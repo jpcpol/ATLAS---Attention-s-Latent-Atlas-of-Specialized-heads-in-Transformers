@@ -80,6 +80,58 @@ C es el paper, y solo se escribe si A+B dan señal empírica.
 Si A-G4 falla → la intuición es elegante pero la base de Fisher no supera al azar; pivotar
 a investigar *por qué* (¿Fisher mal estimado? ¿bloque demasiado pequeño?) antes de abandonar.
 
+### Resultado A-G4 v1 (2026-06-24) — FAIL, pero diagnóstico
+
+| base | mean err L2 (4-bit) |
+|---|---|
+| RTN (sin rotar, U=I) | **4.97e-2** (mejor) |
+| Fisher (U≠I) | 5.10e-2 |
+| Random (QuIP) | 5.27e-2 (peor) |
+
+- Fisher bate a random en solo 16/49 capas (33%) → **FAIL del gate tal como estaba definido**.
+- **PERO**: en media, *rotar empeora* (ambos > RTN), y Fisher < random. El gate asumía que
+  rotar ayuda (modelo QuIP); aquí rotar con **cuantizador por-`max|col|` y bits uniformes**
+  perjudica porque dispersa pesos que estaban concentrados.
+- **Causa raíz (no es bug, es teoría incompleta):** `quantize_rotated` implementó la rotación
+  pero NO la **asignación de bits adaptativa por eigenvalor** que el formalismo §4 marca como
+  el ingrediente activo ($b_i \propto \lambda_i$, escala $\propto \lambda_i^{-1/2}$). Rotamos
+  a la base de Fisher y luego ignoramos Fisher al cuantizar. Eso desperdicia justo lo que
+  Fisher optimiza.
+
+**Veredicto:** A-G4 v1 no falsa NQP — falsa "rotación-Fisher + cuantizador ingenuo". El gate
+debe re-correrse con **escala derivada de λ_i** (A-G4 v2) antes de concluir nada sobre la
+hipótesis central.
+
+### Resultado A-G4 v2 (2026-06-24) — FAIL fuerte, y revela el error de medición
+
+| base | mean err L2 (4-bit) | gana en |
+|---|---|---|
+| RTN (U=I) | 4.97e-2 | 7/49 |
+| Fisher-naive (U≠I, max-col) | 5.10e-2 | 11/49 |
+| Random (QuIP) | 5.27e-2 | 31/49 |
+| **NQP\*** (U≠I, escala λ) | **9.08e-2** | **0/49** (peor de todos) |
+
+La escala-λ **duplicó** el error en vez de bajarlo. Diagnóstico definitivo:
+
+> **El gate A-G4 mide error L2 de reconstrucción, pero NQP NO promete minimizar L2 —
+> promete minimizar el impacto en la LOSS (perplejidad).** La escala-λ por diseño
+> *sacrifica* L2 para proteger direcciones sensibles a la loss. Medir L2 está
+> estructuralmente sesgado contra la idea de NQP: RTN siempre gana porque RTN minimiza
+> exactamente lo que el gate mide. Es tautología, no evidencia.
+
+**Conclusión de la fase de error-L2:** ningún experimento basado en error L2 puede validar
+NQP. Toda comparación debe ser en **PPL / loss downstream**, donde proteger direcciones de
+alta curvatura puede pagar. El error L2 solo sirve como sanity de que la reconstrucción no
+está rota — no como métrica de mérito.
+
+### Replanteo del Camino A (A v3)
+- Métrica de mérito: **ΔPPL**, no error L2.
+- Comparador honesto: **GPTQ** (que también optimiza impacto-en-loss vía Hessiana), no RTN.
+- Hipótesis afinada: la rotación de Fisher + protección de direcciones curvas debería batir
+  a GPTQ *en PPL a 3-4 bits*, aunque pierda en L2. Si tampoco gana en PPL, entonces la base
+  de Fisher de input-activations no aporta sobre la Hessiana de output que GPTQ ya usa, y el
+  valor de NQP (si existe) está en C (rate-distortion sobre eigenespectro), no en A.
+
 **Costo estimado:** ~3–4 sesiones. Diagonalización de bloques 768×768 es trivial en CPU.
 
 ---

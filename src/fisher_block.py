@@ -180,13 +180,52 @@ def quantize_rotated(
     return W_q @ U.t()                               # rotate back → [d_out, d_in]
 
 
-def fisher_eigenbasis(F: Tensor) -> Tensor:
-    """Return U such that Fᵀ = U Λ Uᵀ (symmetric eig). Columns = eigenvectors."""
+def fisher_eig(F: Tensor) -> tuple[Tensor, Tensor]:
+    """Return (eigvals, U) with F = U Λ Uᵀ (symmetric eig). Columns of U = eigenvectors."""
     F = 0.5 * (F + F.t())                            # symmetrize for numerical safety
     # Add tiny ridge for positive-definiteness (F is PSD but may be rank-deficient)
     ridge = 1e-6 * torch.diag(F).mean().clamp(min=1e-12)
     eigvals, eigvecs = torch.linalg.eigh(F + ridge * torch.eye(F.shape[0], device=F.device))
-    return eigvecs
+    return eigvals.clamp(min=1e-12), eigvecs
+
+
+def fisher_eigenbasis(F: Tensor) -> Tensor:
+    """Backward-compat: return only U."""
+    return fisher_eig(F)[1]
+
+
+def quantize_rotated_fisher_scale(
+    W: Tensor,
+    eigvals: Tensor,
+    U: Tensor,
+    bits: int = 4,
+) -> Tensor:
+    """
+    NQP done right (formalism §4): rotate into Fisher eigenbasis AND set the per-column
+    grid from the eigenvalues, not from max|col|.
+
+    Component i in the natural basis has expected variance ∝ λ_i^{-1}; the standard
+    deviation is ∝ λ_i^{-1/2}. We allocate the grid so each column's scale tracks both
+    its own range AND its Fisher sensitivity:
+
+        s_i = (max|W̃_{:,i}|) / n_levels  *  r_i,    r_i = (λ_bar / λ_i)^{1/2} (normalized)
+
+    High λ_i (sensitive direction) → r_i < 1 → finer grid. The r_i is normalized to
+    mean 1 and clamped, so total range is preserved (same anchor as the naive version)
+    but bits are *redistributed* toward sensitive directions — the §4 active ingredient.
+    """
+    W_rot = W @ U                                            # [d_out, d_in]
+    n_levels = 2 ** (bits - 1) - 1
+    base = W_rot.abs().amax(dim=0, keepdim=True) / n_levels  # [1, d_in], per-column anchor
+
+    lam_norm = eigvals / eigvals.mean().clamp(min=1e-12)
+    r = lam_norm.rsqrt()                                     # λ_i^{-1/2}, up to constant
+    r = r / r.mean().clamp(min=1e-12)                        # normalize mean→1
+    r = r.clamp(0.25, 4.0).unsqueeze(0)                      # [1, d_in]
+
+    scale = (base * r).clamp(min=1e-9).expand_as(W_rot)
+    W_q = quantize_symmetric(W_rot, scale, bits)
+    return W_q @ U.t()
 
 
 def random_orthogonal(d: int, device, seed: int = 0) -> Tensor:
@@ -208,21 +247,28 @@ class RotationReport:
     name: str
     err_identity: float    # U = I (RTN)
     err_random: float      # U = random orthogonal (QuIP)
-    err_fisher: float      # U = Fisher eigenbasis (NQP)
+    err_fisher: float      # U = Fisher eigenbasis, naive max|col| scale
+    err_fisher_lam: float  # U = Fisher eigenbasis, λ-derived scale (NQP §4, the real one)
 
     @property
-    def fisher_beats_random(self) -> bool:
-        return self.err_fisher < self.err_random
+    def nqp_beats_random(self) -> bool:
+        return self.err_fisher_lam < self.err_random
 
     @property
-    def fisher_beats_rtn(self) -> bool:
-        return self.err_fisher < self.err_identity
+    def nqp_beats_rtn(self) -> bool:
+        return self.err_fisher_lam < self.err_identity
 
     def __repr__(self) -> str:
-        flag = "FISHER" if self.fisher_beats_random else "random"
+        best = min(self.err_identity, self.err_random, self.err_fisher, self.err_fisher_lam)
+        winner = {
+            self.err_identity: "RTN",
+            self.err_random: "rand",
+            self.err_fisher: "fish",
+            self.err_fisher_lam: "NQP*",
+        }[best]
         return (
-            f"{self.name:40s}  rtn={self.err_identity:.4e}  "
-            f"rand={self.err_random:.4e}  fisher={self.err_fisher:.4e}  [{flag}]"
+            f"{self.name:38s}  rtn={self.err_identity:.4e}  rand={self.err_random:.4e}  "
+            f"fish={self.err_fisher:.4e}  NQP*={self.err_fisher_lam:.4e}  [{winner}]"
         )
 
 
@@ -285,45 +331,55 @@ def run_ag4(
             d_in = W.shape[1]
             F = fishers[name]
 
-            U_fisher = fisher_eigenbasis(F)
+            eigvals, U_fisher = fisher_eig(F)
             U_rand = random_orthogonal(d_in, device, seed=seed)
             I = torch.eye(d_in, device=W.device)
 
             err_id = quant_error_l2(W, quantize_rotated(W, I, bits))
             err_rand = quant_error_l2(W, quantize_rotated(W, U_rand, bits))
             err_fish = quant_error_l2(W, quantize_rotated(W, U_fisher, bits))
+            err_fish_lam = quant_error_l2(W, quantize_rotated_fisher_scale(W, eigvals, U_fisher, bits))
 
-            r = RotationReport(name, err_id, err_rand, err_fish)
+            r = RotationReport(name, err_id, err_rand, err_fish, err_fish_lam)
             reports.append(r)
             print(" ", r)
 
-    # ── Aggregate verdict ──────────────────────────────────────────────────
+    # ── Aggregate verdict (NQP* = Fisher rotation + λ-derived scale, the §4 method) ──
     n = len(reports)
-    n_fish_beats_rand = sum(r.fisher_beats_random for r in reports)
-    n_fish_beats_rtn = sum(r.fisher_beats_rtn for r in reports)
-    mean_fish = sum(r.err_fisher for r in reports) / max(n, 1)
-    mean_rand = sum(r.err_random for r in reports) / max(n, 1)
+    n_nqp_beats_rand = sum(r.nqp_beats_random for r in reports)
+    n_nqp_beats_rtn = sum(r.nqp_beats_rtn for r in reports)
     mean_id = sum(r.err_identity for r in reports) / max(n, 1)
+    mean_rand = sum(r.err_random for r in reports) / max(n, 1)
+    mean_fish = sum(r.err_fisher for r in reports) / max(n, 1)
+    mean_nqp = sum(r.err_fisher_lam for r in reports) / max(n, 1)
 
-    print(f"\n{'='*70}\n[A-G4 VERDICT]  bits={bits}, n_calib={n_calib}\n{'='*70}")
-    print(f"  Fisher beats RANDOM (QuIP):  {n_fish_beats_rand}/{n} layers")
-    print(f"  Fisher beats RTN (identity): {n_fish_beats_rtn}/{n} layers")
-    print(f"  mean err — rtn={mean_id:.4e}  random={mean_rand:.4e}  fisher={mean_fish:.4e}")
-    frac = n_fish_beats_rand / max(n, 1)
-    if frac >= 0.5:
-        print(f"  => PASS: Fisher basis beats random in {frac:.0%} of layers — "
-              f"NQP has content beyond QuIP. Proceed to GPTQ comparison (A-G3).")
+    print(f"\n{'='*70}\n[A-G4 v2 VERDICT]  bits={bits}, n_calib={n_calib}\n{'='*70}")
+    print(f"  NQP* (Fisher+λ-scale) beats RANDOM:  {n_nqp_beats_rand}/{n} layers")
+    print(f"  NQP* beats RTN (identity):           {n_nqp_beats_rtn}/{n} layers")
+    print(f"  mean err — rtn={mean_id:.4e}  random={mean_rand:.4e}  "
+          f"fish-naive={mean_fish:.4e}  NQP*={mean_nqp:.4e}")
+    # Decisive comparison: does the real NQP method beat BOTH random and RTN?
+    frac_rand = n_nqp_beats_rand / max(n, 1)
+    beats_rtn_mean = mean_nqp < mean_id
+    beats_rand_mean = mean_nqp < mean_rand
+    if frac_rand >= 0.5 and beats_rtn_mean:
+        print(f"  => PASS: NQP* beats random in {frac_rand:.0%} AND beats RTN in mean — "
+              f"Fisher structure has content. Proceed to GPTQ comparison (A-G3).")
+    elif beats_rand_mean and not beats_rtn_mean:
+        print(f"  => PARTIAL: NQP* beats random in mean but not RTN — rotation still costs "
+              f"more than it saves at {bits}-bit. Try lower bits or per-eigval bit allocation.")
     else:
-        print(f"  => FAIL: Fisher beats random only {frac:.0%} — NQP ~= QuIP at this "
-              f"setting. Investigate Fisher estimation before A-G3.")
+        print(f"  => FAIL: NQP* beats random only {frac_rand:.0%} — Fisher structure does not "
+              f"help with this quantizer. Reconsider the approach (see ROADMAP).")
 
     return {
         "reports": reports,
-        "n_fisher_beats_random": n_fish_beats_rand,
-        "n_fisher_beats_rtn": n_fish_beats_rtn,
+        "n_nqp_beats_random": n_nqp_beats_rand,
+        "n_nqp_beats_rtn": n_nqp_beats_rtn,
         "n_layers": n,
-        "mean_err": {"identity": mean_id, "random": mean_rand, "fisher": mean_fish},
-        "pass": frac >= 0.5,
+        "mean_err": {"identity": mean_id, "random": mean_rand,
+                     "fisher_naive": mean_fish, "nqp": mean_nqp},
+        "pass": frac_rand >= 0.5 and beats_rtn_mean,
     }
 
 
