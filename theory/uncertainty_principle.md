@@ -133,11 +133,36 @@ en GPT-2 small, 64 muestras de calibración WikiText-103, subespacio dominante t
 aleatorio). NO es la métrica decisiva. La métrica válida son los **ángulos principales del
 subespacio dominante** comparados contra el control aleatorio.
 
-## 7. Próximos pasos
+## 7. Resultado EXP-U02 (2026-06-25) — NQP-U1b REFUTADA
 
-- [x] EXP-U01: medir alineación de bases $F_W$ / $G_A$ (NQP-U1a) → **SOPORTADA (48.8°)**.
-- [ ] EXP-U02: frontera de Pareto $\varepsilon_W$ vs $\varepsilon_A$ (NQP-U1b) — ¿hay un
-      "suelo" en el producto $\varepsilon_W \cdot \varepsilon_A$, y correlaciona con el
-      ángulo por capa?
-- [ ] Formalizar la cota $c$ en función de los espectros de $F_W$, $G_A$ y su ángulo.
-- [ ] Robustez: repetir con más muestras (64→256) y verificar estabilidad del ángulo.
+Frontera $\varepsilon_W$/$\varepsilon_A$ trazada sobre 49 capas (GPT-2, 4-bit, base
+compartida interpolada $U(\alpha)$ de $P_A$ a $P_W$, cuantizando pesos Y activaciones):
+
+| Métrica | Valor | Lectura |
+|---|---|---|
+| Óptimo conjunto interior (trade-off real) | 14/49 (29%) | mayoría en un extremo |
+| corr($\theta$, log suelo) | +0.435 | parecía soportar U1b |
+| corr($\varepsilon_W$, log suelo) | +0.913 | el suelo ≈ $\varepsilon_W$ |
+| **corr parcial($\theta$, suelo \| $\varepsilon_W$)** | **−0.041** | **el ángulo no aporta nada** |
+
+**La correlación ángulo↔suelo era espuria.** Al controlar por $\varepsilon_W$ (que domina el
+suelo, corr 0.91), el efecto del ángulo desaparece (parcial −0.04 ≈ 0). El ángulo correlaciona
+con el suelo solo porque *ambos* rastrean la dificultad intrínseca de cuantizar pesos
+($\theta$↔$\varepsilon_W$ = 0.49), no por una relación de incertidumbre.
+
+**Conclusión:** NO existe cota $\varepsilon_W\cdot\varepsilon_A \geq c(\theta)$. La
+no-conmutatividad de las bases (U1a, real) **no se traduce** en un trade-off de cuantización
+gobernado por el ángulo. Una asimetría de escala ($\varepsilon_W \gg \varepsilon_A$ a iguales
+bits) domina y enmascara cualquier efecto geométrico.
+
+## 8. Estado de las conjeturas de incertidumbre
+
+- **NQP-U1a** (bases no conmutan): ✅ soportada — pero es una propiedad geométrica *estática*,
+  no implica consecuencia operativa.
+- **NQP-U1b** (cota $\varepsilon_W\varepsilon_A \geq c(\theta)$): ❌ refutada — el ángulo no
+  predice el suelo al controlar por $\varepsilon_W$.
+- **NQP-U1c** (límite fundamental de cuantización conjunta): ❌ cae con U1b.
+
+**Lección metodológica:** la correlación bivariada (+0.44) parecía evidencia; la correlación
+*parcial* (−0.04) la desmontó. Siempre controlar por el confound obvio ($\varepsilon_W$) antes
+de atribuir una correlación a la hipótesis bonita.

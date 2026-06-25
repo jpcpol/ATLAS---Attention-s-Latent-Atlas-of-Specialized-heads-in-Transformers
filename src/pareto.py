@@ -1,22 +1,29 @@
 """
-NQP — Uncertainty Pareto frontier (EXP-U02).
+NQP — Uncertainty Pareto frontier (EXP-U02, corrected formulation).
 
-Tests conjecture NQP-U1b: if the weight-Fisher basis P_W and activation-Fisher
-basis P_A do not commute (shown in EXP-U01, angle ≈ 49°), then weight-precision
-ε_W and activation-precision ε_A cannot be minimized simultaneously — there is a
-floor on the product ε_W · ε_A, and that floor should grow with the angle θ
-between the bases (theory/uncertainty_principle.md §4, NQP-U1b).
+Tests conjecture NQP-U1b. The layer computes y = W a, and quantization injects
+error from BOTH sides into the same output:
 
-Method (per linear layer y = W a):
-  - Build an interpolated quantization basis U(α) that rotates from P_A (α=0,
-    optimal for activations) to P_W (α=1, optimal for weights) along the geodesic.
-  - Quantize W in basis U(α) at fixed bits; measure BOTH:
-      ε_W = ||W - Ŵ||² / ||W||²                     (weight reconstruction)
-      ε_A = E_a ||W a - Ŵ a||² / E_a||W a||²         (output / activation error)
-  - Sweep α ∈ [0,1] → trace the (ε_W, ε_A) frontier.
-  - If bases commuted, one α would minimize both (frontier collapses to a point /
-    L-shape touching the origin). Non-commuting ⇒ convex trade-off with a floor.
-  - Correlate the floor min_α(ε_W·ε_A) with the per-layer angle θ from EXP-U01.
+  ε_W = E_a ||(W - Ŵ) a||² / E_a||W a||²     (error from quantizing WEIGHTS)
+  ε_A = E_a ||W (a - â)||² / E_a||W a||²       (error from quantizing ACTIVATIONS)
+
+ε_W is minimized by quantizing W in the basis P_W that diagonalizes the
+weight-side geometry; ε_A is minimized by quantizing a in the basis P_A that
+diagonalizes G_A = E[a aᵀ]. EXP-U01 showed P_W and P_A do NOT commute (θ ≈ 49°).
+
+The uncertainty arises under a SHARED basis constraint: if both weights and
+activations must be expressed/quantized in one common basis U (as any real fused
+kernel would prefer), then U cannot be optimal for both. We sweep a single shared
+basis U(α) from P_A (α=0) to P_W (α=1) and quantize BOTH W and a in U(α):
+
+  - α=0: activations quantize cleanly (ε_A low) but weights pay (ε_W high)
+  - α=1: weights quantize cleanly (ε_W low) but activations pay (ε_A high)
+  - non-commuting bases ⇒ no α kills both ⇒ a floor on ε_W·ε_A with an INTERIOR
+    or trade-off structure, expected to grow with θ.
+
+(The earlier version quantized only W and measured output error twice — that
+collapses to "P_W is best" because F_W already absorbs G_A via the chain rule.
+The fix: actually quantize activations too, so both sides are in play.)
 """
 
 from __future__ import annotations
@@ -40,47 +47,76 @@ from fisher_block import _linear_modules, _weight_matrix, fisher_eig
 from uncertainty import estimate_both_fishers, principal_angles
 
 
+def collect_activation_samples(
+    model, dataloader, layer_names, n_batches=4, max_tokens=2048, device="cpu"
+):
+    """Capture a small buffer of input activations [N, d_in] per layer via hooks."""
+    mods = {n: m for n, m in model.named_modules() if n in layer_names}
+    buffers = {n: [] for n in mods}
+    counts = {n: 0 for n in mods}
+    handles = []
+
+    def make_hook(name):
+        def hook(module, inp, out):
+            if counts[name] >= max_tokens:
+                return
+            a = (inp[0] if isinstance(inp, tuple) else inp).reshape(-1, inp[0].shape[-1])
+            take = min(a.shape[0], max_tokens - counts[name])
+            buffers[name].append(a[:take].detach().to(device))
+            counts[name] += take
+        return hook
+
+    for n, m in mods.items():
+        handles.append(m.register_forward_hook(make_hook(n)))
+
+    with torch.no_grad():
+        for i, batch in enumerate(dataloader):
+            if i >= n_batches:
+                break
+            model(input_ids=batch["input_ids"].to(device))
+
+    for h in handles:
+        h.remove()
+    return {n: torch.cat(buffers[n], dim=0) for n in buffers if buffers[n]}
+
+
 # ---------------------------------------------------------------------------
 # Geodesic interpolation between two orthogonal bases
 # ---------------------------------------------------------------------------
 
+class BasisInterpolator:
+    """
+    Cheap orthogonal interpolation between two bases via linear blend + QR.
+
+        U(α) = orthonormalize( (1-α)·P_A + α·P_W )
+
+    This traces a continuous path of orthogonal bases from P_A (α=0) to P_W (α=1).
+    It is NOT the exact SO(d) geodesic, but for tracing the ε_W/ε_A trade-off any
+    smooth orthogonal path between the two optima suffices — and QR on 768×768 is
+    ~100× cheaper than the complex eig the geodesic needs (which stalled EXP-U02).
+    Endpoints are returned exactly.
+    """
+    def __init__(self, P_A: Tensor, P_W: Tensor):
+        self.P_A = P_A
+        self.P_W = P_W
+        # Align column signs so the linear blend doesn't cancel near-parallel cols.
+        signs = torch.sign((P_A * P_W).sum(dim=0)).clamp(min=-1.0)
+        signs[signs == 0] = 1.0
+        self.P_W_aligned = P_W * signs.unsqueeze(0)
+
+    def at(self, alpha: float) -> Tensor:
+        if alpha <= 0.0:
+            return self.P_A
+        if alpha >= 1.0:
+            return self.P_W
+        M = (1.0 - alpha) * self.P_A + alpha * self.P_W_aligned
+        Q, R = torch.linalg.qr(M)
+        return Q * torch.sign(torch.diag(R)).clamp(min=-1.0).unsqueeze(0)
+
+
 def interpolate_basis(P_A: Tensor, P_W: Tensor, alpha: float) -> Tensor:
-    """
-    Orthogonal basis on the geodesic from P_A (alpha=0) to P_W (alpha=1).
-
-    Compute the relative rotation R = P_Aᵀ P_W, take its matrix log to get the
-    generator, scale by alpha, exponentiate, and apply. Result stays orthogonal.
-
-        U(α) = P_A · expm( α · logm(P_Aᵀ P_W) )
-
-    For numerical robustness we use an SVD-based orthogonal interpolation: rotating
-    via the principal-angle decomposition keeps U(α) exactly orthogonal at every α.
-    """
-    if alpha <= 0.0:
-        return P_A
-    if alpha >= 1.0:
-        return P_W
-    R = P_A.t() @ P_W                       # relative rotation [d,d]
-    # Orthogonal Procrustes / SVD: R = X S Yᵀ ; nearest rotation interpolation
-    X, S, Yt = torch.linalg.svd(R)
-    # Geodesic on SO(d): U(α) = P_A X · diag(angle·α via S) · Yᵀ ... approximate with
-    # slerp of the orthogonal factor (S≈1 since R is near-orthogonal for close bases).
-    Q = X @ Yt                              # orthogonal part of R (nearest rotation)
-    # Matrix-log of Q (skew-symmetric generator), scale, re-exponentiate.
-    # eigendecomp of skew via real Schur is overkill here; use a stable series:
-    A = _matrix_log_orthogonal(Q)
-    Qa = torch.linalg.matrix_exp(alpha * A)
-    return P_A @ Qa
-
-
-def _matrix_log_orthogonal(Q: Tensor) -> Tensor:
-    """Skew-symmetric log of an orthogonal matrix via eigendecomposition."""
-    # Q orthogonal ⇒ complex eigenvalues on unit circle. Use the real form:
-    # log(Q) is skew-symmetric; approximate stably with (Q - Qᵀ)/2 projected.
-    # For small rotations this is accurate; for large, matrix_exp(α·log) still
-    # yields an orthogonal interpolant (we re-orthonormalize as a safeguard).
-    S = 0.5 * (Q - Q.t())                   # skew part = first-order log
-    return S
+    """One-shot interpolation (for tests). For sweeps use BasisInterpolator."""
+    return BasisInterpolator(P_A, P_W).at(alpha)
 
 
 def _reorthonormalize(U: Tensor) -> Tensor:
@@ -93,8 +129,8 @@ def _reorthonormalize(U: Tensor) -> Tensor:
 # Dual error measurement
 # ---------------------------------------------------------------------------
 
-def quantize_in_basis(W: Tensor, U: Tensor, bits: int) -> Tensor:
-    """Rotate W into basis U, per-column symmetric quant, rotate back."""
+def quantize_weight_in_basis(W: Tensor, U: Tensor, bits: int) -> Tensor:
+    """Rotate W columns into basis U, per-column symmetric quant, rotate back. [d_out,d_in]"""
     U = _reorthonormalize(U)
     W_rot = W @ U
     n_levels = 2 ** (bits - 1) - 1
@@ -102,20 +138,35 @@ def quantize_in_basis(W: Tensor, U: Tensor, bits: int) -> Tensor:
     return quantize_symmetric(W_rot, scale, bits) @ U.t()
 
 
-def dual_error(W: Tensor, W_hat: Tensor, A_cov: Tensor) -> tuple[float, float]:
+def quantize_activations_in_basis(A: Tensor, U: Tensor, bits: int) -> Tensor:
     """
-    Return (ε_W, ε_A):
-      ε_W = ||W - Ŵ||² / ||W||²                          (weight space)
-      ε_A = tr(ΔWᵀ ΔW · G_A) / tr(Wᵀ W · G_A)            (output space, weighted by
-            activation covariance G_A = E[a aᵀ]; this is E_a||ΔW a||²/E_a||W a||²).
+    Quantize activation samples A [N, d_in] in basis U, rotate back.
+    Per-dimension scale set from the rotated activation range (static quant).
     """
-    dW = W - W_hat
-    eps_w = dW.pow(2).sum().item() / max(W.pow(2).sum().item(), 1e-12)
-    # E_a||M a||² = tr(M G_A Mᵀ) = sum over rows of (M G_A) ⊙ M
-    num = (dW @ A_cov * dW).sum().item()
-    den = (W @ A_cov * W).sum().item()
-    eps_a = num / max(den, 1e-12)
-    return eps_w, eps_a
+    U = _reorthonormalize(U)
+    A_rot = A @ U                                       # [N, d_in]
+    n_levels = 2 ** (bits - 1) - 1
+    scale = (A_rot.abs().amax(dim=0, keepdim=True) / n_levels).clamp(min=1e-9)
+    A_q = quantize_symmetric(A_rot, scale.expand_as(A_rot), bits)
+    return A_q @ U.t()
+
+
+def dual_error_sampled(
+    W: Tensor, W_hat: Tensor, A: Tensor, A_hat: Tensor
+) -> tuple[float, float]:
+    """
+    Output-referred errors from quantizing weights vs activations, on real samples.
+
+      ε_W = E_a||(W - Ŵ) a||² / E_a||W a||²       (weight quant error at the output)
+      ε_A = E_a||W (a - â)||² / E_a||W a||²        (activation quant error at the output)
+
+    A is [N, d_in]; outputs are A @ Wᵀ ∈ [N, d_out].
+    """
+    Y = A @ W.t()                                       # reference output [N, d_out]
+    den = Y.pow(2).sum().item()
+    dW = (A @ (W - W_hat).t()).pow(2).sum().item()      # ||(W-Ŵ)a||²
+    dA = ((A - A_hat) @ W.t()).pow(2).sum().item()      # ||W(a-â)||²
+    return dW / max(den, 1e-12), dA / max(den, 1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -192,27 +243,35 @@ def run_exp_u02(
     fishers = estimate_both_fishers(model, loader, n_samples=n_calib, device=device)
 
     mods = _linear_modules(model)
-    alphas = [i / (n_alpha - 1) for i in range(n_alpha)]
-    reports = []
-
-    print(f"[EXP-U02] Tracing Pareto frontiers ({bits} bits, {n_alpha} α-steps)...\n")
     items = list(fishers.items())
     if max_layers is not None:
         items = items[:max_layers]
 
+    print(f"[EXP-U02] Collecting activation samples...")
+    act = collect_activation_samples(
+        model, loader, [n for n, _ in items], n_batches=4, device=device
+    )
+
+    alphas = [i / (n_alpha - 1) for i in range(n_alpha)]
+    reports = []
+
+    print(f"[EXP-U02] Tracing Pareto frontiers ({bits} bits, {n_alpha} α-steps)...\n")
     for name, (F_W, G_A) in items:
-        if name not in mods:
+        if name not in mods or name not in act:
             continue
         W, _ = _weight_matrix(mods[name])              # [d_out, d_in]
+        A = act[name]                                  # [N, d_in] real activations
         _, P_W = fisher_eig(F_W); P_W = P_W.flip(1)     # dominant first
         _, P_A = fisher_eig(G_A); P_A = P_A.flip(1)
         angle = math.degrees(principal_angles(P_W, P_A, min(top_k, P_W.shape[0])).mean().item())
 
+        interp = BasisInterpolator(P_A, P_W)        # one eig per layer, reused for all α
         ew_list, ea_list = [], []
         for a in alphas:
-            U = interpolate_basis(P_A, P_W, a)
-            W_hat = quantize_in_basis(W, U, bits)
-            ew, ea = dual_error(W, W_hat, G_A)
+            U = interp.at(a)
+            W_hat = quantize_weight_in_basis(W, U, bits)
+            A_hat = quantize_activations_in_basis(A, U, bits)
+            ew, ea = dual_error_sampled(W, W_hat, A, A_hat)
             ew_list.append(ew)
             ea_list.append(ea)
 

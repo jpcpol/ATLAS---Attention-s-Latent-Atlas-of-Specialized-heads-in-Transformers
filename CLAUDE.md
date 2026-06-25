@@ -59,10 +59,11 @@ NQP/
 - **NQP-C1 (cuantización):** ❌ *Refutada empíricamente* (2026-06-24). La base de Fisher de
   activaciones no supera a GPTQ+AWQ+QuIP; la analogía con "medir en la base del Hamiltoniano"
   resultó metafórica (Fisher de activaciones es rango ~2). Ver `experiments/ROADMAP.md`.
-- **NQP-U1 (incertidumbre):** 🟢 *Conjetura activa principal.* Existe un principio de
-  incertidumbre entre precisión de pesos y activaciones: si $[\hat{P}_W,\hat{P}_A]\neq 0$,
-  entonces $\varepsilon_W \cdot \varepsilon_A \geq c$. Esta es la parte con estructura cuántica
-  **literal** (observables que no conmutan). Ver `theory/uncertainty_principle.md`.
+- **NQP-U1 (incertidumbre):** ⚠️ *Parcialmente refutada (2026-06-25).* U1a ✅ (las bases
+  $\hat{P}_W$, $\hat{P}_A$ no conmutan, ángulo 49°) pero U1b ❌ (no hay cota
+  $\varepsilon_W\varepsilon_A \geq c(\theta)$: la correlación ángulo↔suelo es espuria, cae a
+  −0.04 al controlar por $\varepsilon_W$). La no-conmutatividad es real pero sin consecuencia
+  operativa en cuantización. Ver `theory/uncertainty_principle.md` §7-8.
 - **NQP-C2:** congelada (dependía de C1).
 
 ---
