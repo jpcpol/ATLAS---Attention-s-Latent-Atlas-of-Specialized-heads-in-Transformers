@@ -257,6 +257,61 @@ def run(model_name="Qwen/Qwen2.5-0.5B", device="cpu", n_blocks=12,
             "inter_O_h_k7": mean7, "inter_ci_k7": (lo7, hi7)}
 
 
+def robustness(model_name="Qwen/Qwen2.5-0.5B", device="cpu", n_blocks=12,
+               n_points=1200, n_deep=3, seeds=(42, 123), k_fixed=7, offload=False):
+    """Robustness control: inter-group O_h at fixed d_local=k_fixed across the deepest
+    `n_deep` layers and several seeds. Closes the §3.1b gap (the headline cross-arch O_h
+    was a single-layer, single-seed measurement). Reports depth-spread and seed-spread —
+    the cross-architecture analogue of Appendix B for GPT-2.
+    """
+    print(f"[Atlas-robustness-xarch] {model_name}" + ("  [offload]" if offload else ""))
+    model, ids = _load_any(model_name, device, seeds[0], offload=offload)
+    geo = model_head_geometry(model)
+    n_rep = geo["n_rep"]
+    layers = list(range(geo["n_layer"] - n_deep, geo["n_layer"]))
+    print(f"  geometry: family={geo['family']} n_q={geo['n_q']} n_kv={geo['n_kv']} "
+          f"n_rep={n_rep} d_head={geo['d_head']} | layers={layers} seeds={list(seeds)}")
+
+    cells = {}                                    # (layer, seed) -> (O_h, lo, hi)
+    print(f"\n  inter-group O_h at fixed d_local={k_fixed}:")
+    print(f"      {'layer':>5} | {'seed':>4} | {'O_h':>6} | {'95% CI':>16}")
+    for L in layers:
+        for s in seeds:
+            torch.manual_seed(s)
+            by_head, N = _deep_query_heads(model, ids, L, device, n_blocks, n_points)
+            p = partition_pairs(by_head, k_fixed, n_rep)
+            seq = p["inter"] if p["inter"] else p["global"]
+            mean, lo, hi, _ = bootstrap_ci(seq)
+            cells[(L, s)] = (mean, lo, hi)
+            print(f"      {L:>5} | {s:>4} | {mean:>6.3f} | [{lo:.3f}, {hi:.3f}]")
+
+    vals = [v[0] for v in cells.values()]
+    depth_means = [statistics.mean([cells[(L, s)][0] for s in seeds]) for L in layers]
+    seed_spreads = [max(cells[(L, s)][0] for s in seeds) - min(cells[(L, s)][0] for s in seeds)
+                    for L in layers]
+    depth_spread = max(depth_means) - min(depth_means)
+    seed_spread = max(seed_spreads)
+    overall = statistics.mean(vals)
+    print(f"\n{'='*70}\n[ROBUSTNESS] {model_name}\n{'='*70}")
+    print(f"  mean inter-group O_h (k={k_fixed}) = {overall:.3f}")
+    print(f"  depth-spread (across {n_deep} deep layers) = {depth_spread:.3f}")
+    print(f"  seed-spread  (max across seeds)          = {seed_spread:.3f}")
+    # The relevant comparison is depth/seed wobble vs the cross-architecture separation
+    # (~0.08 between the d_head-64 and d_head-128 clusters). Stability means the within-model
+    # wobble is much smaller than that gap, NOT below an arbitrary absolute threshold.
+    XARCH_GAP = 0.08
+    wobble = max(depth_spread, seed_spread)
+    verdict = "STABLE" if wobble < 0.3 * XARCH_GAP else "CHECK"
+    print(f"  within-model wobble = {wobble:.3f}  vs  cross-arch gap ≈ {XARCH_GAP:.2f}")
+    print(f"  => {verdict}: within-model variation is "
+          f"{'far smaller than' if verdict=='STABLE' else 'NOT clearly smaller than'} "
+          f"the cross-architecture separation, so the Case B clustering holds.")
+    return {"model": model_name, "geometry": geo, "k_fixed": k_fixed, "layers": layers,
+            "seeds": list(seeds), "cells": {f"{L}|{s}": cells[(L, s)] for (L, s) in cells},
+            "mean": overall, "depth_spread": depth_spread, "seed_spread": seed_spread,
+            "verdict": verdict}
+
+
 if __name__ == "__main__":
     import argparse
     p = argparse.ArgumentParser(description="NQP-Q Phase 1 — cross-architecture O_h")
@@ -264,6 +319,13 @@ if __name__ == "__main__":
     p.add_argument("--n-blocks", type=int, default=12)
     p.add_argument("--n-points", type=int, default=1200)
     p.add_argument("--device", type=str, default="cpu")
+    p.add_argument("--robustness", action="store_true",
+                   help="run the depth/seed robustness control instead of the single-layer run")
+    p.add_argument("--offload", action="store_true")
     args = p.parse_args()
-    run(model_name=args.model, device=args.device,
-        n_blocks=args.n_blocks, n_points=args.n_points)
+    if args.robustness:
+        robustness(model_name=args.model, device=args.device, n_blocks=args.n_blocks,
+                   n_points=args.n_points, offload=args.offload)
+    else:
+        run(model_name=args.model, device=args.device,
+            n_blocks=args.n_blocks, n_points=args.n_points)
