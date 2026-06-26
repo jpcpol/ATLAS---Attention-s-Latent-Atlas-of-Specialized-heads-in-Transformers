@@ -193,6 +193,26 @@ valid first data point that still exercises RMSNorm+RoPE+GQA.
     by hand on 2 heads before believing it. This is the NQP discipline — a surprising positive is a
     bug until proven otherwise.
 
+- **✅ Phase 1 DONE (2026-06-26) — GATE G1 PASS.** Ran `src/atlas_crossarch.py` on **Qwen2.5-0.5B**
+  (deepest layer L23, N=1200, group_mode=query, d_local from the model's own TwoNN). The script
+  introduces the GQA pair split (`kv_group_of`, `partition_pairs`; KV group = h // n_rep, verified
+  against HF `repeat_kv` and unit-tested for pair counts 91/42/49).
+
+  | population | O_h (d_local=7) | 95% bootstrap CI | pairs | reading |
+  |---|---|---|---|---|
+  | **inter-group** (independent V — the honest comparand vs GPT-2) | **0.290** | [0.284, 0.297] | 49 | ≈ GPT-2's 0.284 [0.276, 0.292] |
+  | intra-group (shared V) | 0.482 | [0.453, 0.514] | 42 | inflated by shared value space, as predicted |
+  | global (all pairs) | 0.379 | [0.355, 0.404] | 91 | contaminated by intra — would have *over-concluded* |
+  | per-head TwoNN | ~7.1 | (range 4.1–26) | — | same ~7D as GPT-2 |
+
+  **Anti-NQP discipline visible:** the naive *global* average (0.379) would have said "Qwen heads are
+  more aligned than GPT-2"; the split shows that is a GQA artifact, and the honest inter-group number
+  (0.290) matches GPT-2 (0.284). Not a bug: the extractor *does* distinguish geometry (intra 0.482 ≠
+  inter 0.290), TwoNN≈7 is computed independently and also matches, and the d_local sweep replicates
+  the GPT-2 shape (0.23→0.35, spread 0.114; conclusion O_h ≪ 1 is k-independent). **Preliminary Case
+  A:** O_h ≈ 0.28–0.29 *and* TwoNN ≈ 7 survive RMSNorm + RoPE + aggressive GQA (n_rep=7). One model is
+  a point, not a family — Phase 2 (Llama/Mistral) is still required before any title change.
+
 ### Phase 2 — Llama-3-8B + Mistral-7B under the matched protocol *(the headline run)*
 - Both models, deepest-layer + last-3 band, N=1200, bootstrap CI, both O_h(32 Q) and O_h(8 KV),
   d_local from each model's TwoNN, d_local sweep for the caveat.
