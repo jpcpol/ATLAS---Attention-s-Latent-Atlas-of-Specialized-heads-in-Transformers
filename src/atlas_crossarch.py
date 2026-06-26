@@ -115,10 +115,17 @@ def _load_any(model_name, device, seed, dtype=None, offload=False):
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
     if is_cuda and offload:
-        # auto-shard across GPU + CPU (full fp16). Inputs must enter on the embedding's
-        # device; accelerate routes the rest. We tag that device for _run_blocks.
+        # auto-shard across GPU + CPU (full fp16). device_map="auto" alone will cram the
+        # GPU until it OOMs on an 8B that *almost* fits; we cap GPU memory explicitly so
+        # accelerate spills the overflow layers to CPU, leaving VRAM headroom for the
+        # forward-pass activations. Inputs must enter on the embedding's device.
+        import os
+        gpu_gib = int(os.environ.get("NQP_GPU_GIB", "11"))   # leave ~3–4 GiB headroom
+        cpu_gib = int(os.environ.get("NQP_CPU_GIB", "20"))
+        max_mem = {0: f"{gpu_gib}GiB", "cpu": f"{cpu_gib}GiB"}
         model = AutoModelForCausalLM.from_pretrained(
-            model_name, dtype=dtype, device_map="auto", low_cpu_mem_usage=True)
+            model_name, dtype=dtype, device_map="auto", max_memory=max_mem,
+            low_cpu_mem_usage=True)
         try:
             in_dev = next(model.parameters()).device
         except StopIteration:
