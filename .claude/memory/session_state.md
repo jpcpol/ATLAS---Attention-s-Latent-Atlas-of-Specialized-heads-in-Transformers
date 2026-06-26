@@ -63,10 +63,16 @@ Extendido el atlas de GPT-2 a 4 familias autorregresivas → **Case B**:
 ## Pendientes para próxima sesión
 
 - **P-CHATGPT**: consultar a ChatGPT ANTES de diseñar el ablation arquitectónico (decisión del usuario).
-- **EXP-ABLATION**: ablation matched-scale {MHA↔GQA, #KV, d_head, RoPE↔learned, RMSNorm↔LN} —
-  variar d_head con d_model/n_KV/profundidad/datos FIJOS, midiendo plateau-d_int post-hoc como
-  mediador (exploratorio, NO causal — es post-treatment mediator). Escala ya descartada como palanca.
-  Establece architecture→O_h, NO O_h→quality (lección NQP). REQUIERE entrenar → no es barato.
+- **EXP-ABLATION — DISEÑO APROBADO (2026-06-26)**: `docs/ablation_design.md`, vetted en 2 rondas
+  con ChatGPT, aprobado por el PI. Batch-1 mini matched-scale: 4 modelos ~20M (d_model=512, 8 capas,
+  LayerNorm, learned-pos), variar d_head ∈ {32,64,128,256} (n_heads=16/8/4/2 — paquete, NO se separa
+  ahora), 2 seeds, WikiText-103, Colab T4. Frame: **fixed-point-like** (NO "universality classes").
+  Gate 0 (atlas maduro) antes de medir: O_h plano sin atlas = INVÁLIDO, no refutado. P1 monótona en
+  O_h; P2 "sistemática" (no monótona) en d_int; P3 (d_head=64, escala distinta → mismo O_h) = control
+  clave. Afirma efecto TOTAL de intervención, NO causa, NO O_h→quality. Factorial (batch-2) solo si
+  P1 fuerte.
+  **SIGUIENTE = DESARROLLO**: harness de entrenamiento con transformers GP2Config variando solo
+  n_head; los modelos los lee el mismo pipeline (residual_backends ya habla GPT-2); + Gate 0.
 - **SEGURIDAD**: revocar el token HF expuesto en chat (hf_BhgO...) y generar uno nuevo.
 - **P-001**: confirmación bibliográfica refs [17]–[23] (flagged [verify]) vía reference manager.
 - Integrar §3.1b → ya hecho; solo queda re-render de figuras si cambian datos.
