@@ -112,10 +112,26 @@ def _load_any(model_name, device, seed, dtype=None):
         tok.pad_token = tok.eos_token
     model = AutoModelForCausalLM.from_pretrained(model_name, dtype=dtype)
     model.eval().to(device)
-    ds = load_dataset("wikitext", "wikitext-103-raw-v1")
+    ds = _load_wikitext103(load_dataset)
     text = "\n\n".join(t for t in ds["validation"]["text"] if t.strip())
     ids = tok(text, return_tensors="pt")["input_ids"].squeeze(0)
     return model, ids
+
+
+def _load_wikitext103(load_dataset):
+    """WikiText-103 validation, robust to the datasets-library id change.
+
+    Newer `datasets` requires the canonical `namespace/name` id and rejects the bare
+    `wikitext` shorthand (HfUriError). Try the canonical id first, fall back to the
+    legacy short name for older library versions.
+    """
+    for repo in ("Salesforce/wikitext", "wikitext"):
+        try:
+            return load_dataset(repo, "wikitext-103-raw-v1")
+        except Exception:
+            continue
+    # last resort: surface the canonical-id error
+    return load_dataset("Salesforce/wikitext", "wikitext-103-raw-v1")
 
 
 def _deep_query_heads(model, ids, layer, device, n_blocks, n_points):
