@@ -1,4 +1,4 @@
-# ATLAS — *Attention's Latent Atlas of Specialized heads*
+# ATLAS — *Attention's Latent Atlas of Specialized heads in Transformers*
 
 > Formerly **NQP** (*Natural Quantization via State Preparation*). The founding quantization
 > hypothesis was refuted; the project's destination turned out to be **the geometry it uncovered
