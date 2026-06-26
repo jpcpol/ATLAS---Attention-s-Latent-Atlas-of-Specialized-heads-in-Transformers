@@ -1,0 +1,37 @@
+{
+  "date": "2026-06-26",
+  "note": "O_h_official = per-model d_local (=TwoNN); O_h_k7 = fixed d_local=7 for all (removes d_local confound)",
+  "gpt2": {
+    "official": 0.283,
+    "k7": 0.283,
+    "CI_k7": [
+      0.276,
+      0.29
+    ]
+  },
+  "qwen": {
+    "official": 0.291,
+    "k7": 0.291,
+    "CI_k7": [
+      0.285,
+      0.298
+    ]
+  },
+  "mistral": {
+    "official": 0.226,
+    "k7": 0.199,
+    "CI_k7": [
+      0.198,
+      0.201
+    ]
+  },
+  "llama": {
+    "official": 0.248,
+    "k7": 0.197,
+    "CI_k7": [
+      0.195,
+      0.199
+    ]
+  },
+  "verdict": "Case B survives the d_local control: at fixed k=7 the GPT-2/Qwen (~0.29) vs Llama/Mistral (~0.20) gap WIDENS to dO_h~0.09. Architectural difference is real geometry, not a d_local artifact."
+}

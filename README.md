@@ -2,9 +2,10 @@
 
 > Formerly **NQP** (*Natural Quantization via State Preparation*). The founding quantization
 > hypothesis was refuted; the project's destination turned out to be **the geometry it uncovered
-> on the way**: a scale-invariant atlas of head-specific, mutually non-aligned manifolds in the
-> residual of transformer attention. The repository keeps the name **NQP** on disk for git
-> continuity, but the project's *goal* — and this README — point at the atlas.
+> on the way**: an atlas of head-specific, mutually non-aligned manifolds in the residual of
+> transformer attention — found across four autoregressive families (GPT-2, Qwen, Llama, Mistral).
+> The repository keeps the name **NQP** on disk for git continuity, but the project's *goal* — and
+> this README — point at the atlas.
 
 **Principal investigator:** Juan Pablo Chancay · jpcpol@gmail.com
 **Started:** 2026-06-24 · **Target venue:** NeurIPS / ICLR (workshop)
@@ -17,8 +18,10 @@
 The project began by asking *"can we quantize an LLM better by rotating its weights into the natural
 Fisher basis (analogous to measuring in the Hamiltonian's eigenbasis)?"* — and ended up answering
 *"that idea did not work, but refuting it revealed a new, reproducible geometric structure in
-attention: each head lives in its own ~7D manifold, and these manifolds are mutually non-aligned
-(overlap O_h ≈ 0.28), stably across model scale and corpus."*
+attention: each head lives in its own low-dimensional (~7–11D) manifold, and these manifolds are
+mutually non-aligned (overlap O_h ≪ 1) across four autoregressive transformer families — GPT-2,
+Qwen2.5, Llama-3.1, Mistral. The existence is architecture-robust; the magnitude clusters by
+attention design (GPT-2/Qwen ≈ 0.28, Llama/Mistral ≈ 0.20)."*
 
 | Original hypothesis (refuted) | Surviving result (positive) |
 |---|---|
@@ -35,7 +38,7 @@ and §0 of the paper ([docs/paper_draft.md](docs/paper_draft.md)).
 
 - **Scientific objective (largely achieved):** understand the geometric organization of attention
   and its functional role. → *There is an atlas of head-specific manifolds, non-aligned, robust
-  across scale and corpus.*
+  across scale, corpus, and architecture (GPT-2 / Qwen / Llama / Mistral).*
 - **Applied objective (open):** determine whether this organization can be exploited to build more
   efficient, adaptive, or interpretable Transformers — **without repeating NQP's mistake**: the
   existence of a geometric structure does not imply it is exploitable.
@@ -61,12 +64,13 @@ NQP/
 
 | File | What it is |
 |---|---|
-| [docs/paper_draft.md](docs/paper_draft.md) | **Complete preprint (frozen).** Central result: scale-invariant atlas (O_h ≈ 0.28). §0 ties the results back to the original objective; §3 orders the evidence by strength; §5 Related Work with references [1]–[16]. **Start here.** |
+| [docs/paper_draft.md](docs/paper_draft.md) | **Complete preprint.** Central result: an atlas of non-aligned head-specific manifolds across four autoregressive families (O_h ≪ 1; magnitude clusters by attention design). §0 ties results to the original objective; §3.1b is the cross-architecture result; §5 Related Work, refs [1]–[23]. **Start here.** |
+| [docs/cross_architecture_plan.md](docs/cross_architecture_plan.md) | Cross-architecture research + roadmap: prior-work positioning, GQA obstacles, staged Phase 0–3 with gates, and the recorded Phase 0/1/2 + d_local-control results (Case B). |
 | [docs/paper_skeleton.md](docs/paper_skeleton.md) | Earlier paper skeleton (thermodynamic structure + intrinsic geometry). |
 | [docs/research_questions.md](docs/research_questions.md) | Open research questions (Q01–Q06 and derivatives). |
 | [docs/retrospective_vs_original_goal.md](docs/retrospective_vs_original_goal.md) | What the results mean against the founding hypothesis, with the outcome stated plainly. |
-| [docs/figure_data.json](docs/figure_data.json) | Single source of truth for the figures (overlap matrices, dims, run scalars). |
-| [docs/figures/](docs/figures/) | The paper's 8 figures (5 main + 3 supplementary). Fig 1 = H×H overlap matrix (the iconic one). |
+| [docs/figure_data.json](docs/figure_data.json) · [docs/phase2_results.json](docs/phase2_results.json) · [docs/phase2_control.json](docs/phase2_control.json) | Single sources of truth for the figures and the cross-architecture O_h runs (+ d_local control). |
+| [docs/figures/](docs/figures/) | The paper's 9 figures (6 main + 3 supplementary). Fig 1 = H×H overlap matrix (iconic); Fig 6 = O_h across architectures. |
 
 ---
 
@@ -113,9 +117,12 @@ NQP/
 | [src/atlas_scaling.py](src/atlas_scaling.py) | Inter-head overlap O_h across the GPT-2 family (scale-invariance). |
 | [src/atlas_robustness.py](src/atlas_robustness.py) | **Hardening of the central claim:** bootstrap CI of O_h + sensitivity to d_local / N / depth. |
 | [src/atlas_intercorpus.py](src/atlas_intercorpus.py) | Inter-corpus control (WikiText-103 vs C4): O_h is a property of the model, not the corpus. |
+| [src/residual_backends.py](src/residual_backends.py) | **Architecture-agnostic residual extraction** (GPT-2 / Llama / Mistral / Qwen2 backends; handles RMSNorm, RoPE, GQA). Lets the same O_h protocol run on any of the four families. |
+| [src/atlas_crossarch.py](src/atlas_crossarch.py) | **Cross-architecture O_h** with the GQA intra/inter-group pair split + per-model d_local + fixed-d_local control. The Phase 1/2 driver. |
 | [src/autoencoder.py](src/autoencoder.py) | **EXP-Q06:** per-head nonlinear autoencoder (64→7→64) vs PCA rank-7. Clean negative: the manifold is not functionally compressible by this route. |
 | [src/figure_data.py](src/figure_data.py) | Collects the figure data → `docs/figure_data.json`. |
-| [src/make_figures.py](src/make_figures.py) | Renders the 8 figures → `docs/figures/`. |
+| [src/make_figures.py](src/make_figures.py) | Renders the 9 figures → `docs/figures/` (incl. Fig 6, cross-architecture). |
+| [tests/test_phase0_regression.py](tests/test_phase0_regression.py) | Regression gate: the backend refactor must reproduce GPT-2's O_h = 0.284 bit-for-bit. |
 
 ---
 
@@ -139,24 +146,28 @@ depth.
 |---|---|
 | Fisher quantization (NQP-C1) | ❌ Refuted — collapses onto GPTQ+AWQ+QuIP |
 | Uncertainty principle (NQP-U1) | ⚠️ Partial — bases do not commute but with no operational consequence |
-| Scale-invariant atlas (O_h ≈ 0.28) | ✅ Central result, frozen |
-| Per-head ~7D nonlinear manifold | ✅ |
+| Scale-invariant atlas within GPT-2 (O_h ≈ 0.28) | ✅ Central result |
+| Per-head low-dim nonlinear manifold (~7–11D) | ✅ |
+| **Cross-architecture (GPT-2 / Qwen / Llama / Mistral)** | ✅ **Case B** — O_h ≪ 1 universal; magnitude clusters by attention design (d_local control confirms it is real geometry) |
 | Functional compression of the manifold (Q06) | ❌ Honest negative (AE ≈ PCA) |
-| Preprint | ✅ Complete draft, frozen |
-| Bibliographic metadata confirmation | ⬜ Pending (reference manager) |
-| Cross-architecture (Llama / Mistral) | ⬜ Pending — would promote "scale-invariant within GPT-2" |
+| Preprint | ✅ Complete draft (title promoted; cross-arch §3.1b + Fig 6 integrated) |
+| Bibliographic metadata confirmation | ⬜ Pending (reference manager; refs [17]–[23] flagged) |
+| Architectural ablation — *what component sets O_h?* | ⬜ Open (d_head is the lead; see Future Work) |
 
 ---
 
 ## Future directions (prioritized, with NQP's caution)
 
-1. **Geometric routing across heads** — dynamic activation of a subset of heads (MoE-like, but by
-   latent geometry rather than learned logits). The most promising applied bet.
-2. **Diagnostic metrics** — use O_h to detect head collapse/redundancy; requires no architectural
+1. **What architectural component sets O_h?** — the cross-architecture result turned the existence
+   question into this sharper one. The lead from our four points is **head dimension** (d_head 64 →
+   ≈0.28, d_head 128 → ≈0.20, even though Qwen already has GQA/RoPE/RMSNorm). A matched-scale ablation
+   over {MHA↔GQA, #KV heads, d_head, RoPE↔learned, RMSNorm↔LayerNorm} would isolate the driver.
+   *Caveat (the NQP lesson): this establishes architecture→O_h, not O_h→quality.*
+2. **Geometric routing across heads** — dynamic activation of a subset of heads (MoE-like, but by
+   latent geometry rather than learned logits).
+3. **Diagnostic metrics** — use O_h to detect head collapse/redundancy; requires no architectural
    change.
-3. **Atlas stability under fine-tuning** — is the atlas more stable than the weights across
-   pretraining → instruction tuning → RLHF?
-4. **(Speculative)** structured compression (shared dictionary + per-head coordinates), geometric
-   regularization, hierarchical macro/micro architectures.
+4. **Atlas stability under fine-tuning**; cross-*paradigm* generalization (encoder, encoder–decoder,
+   state-space); **(speculative)** structured compression, geometric regularization.
 
 The central medium-term question: **is the geometry causal or merely descriptive?**

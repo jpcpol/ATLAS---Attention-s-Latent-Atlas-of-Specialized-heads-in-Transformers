@@ -256,6 +256,29 @@ valid first data point that still exercises RMSNorm+RoPE+GQA.
   attention architecture.* Distinguishing the invariant (existence) from the variable (magnitude) is
   scientifically stronger than a flat Case A.
 
+- **✅ d_local CONTROL DONE (2026-06-26) — Case B survives, and strengthens.** The "official" O_h
+  uses a per-model d_local (= each model's TwoNN: 7/7/9/11), so the cross-model comparison mixed
+  points on different O_h(k) curves — a potential confound (O_h rises with d_local). We re-measured
+  all four models at a **common fixed d_local = 7** (`atlas_crossarch` now reports `inter_O_h_k7`
+  with bootstrap CI; results in `docs/phase2_control.json`):
+
+  | model | O_h (per-model d_local) | O_h (fixed k=7) | 95% CI (k=7) |
+  |---|---|---|---|
+  | GPT-2 | 0.283 (k=7) | 0.283 | [0.276, 0.290] |
+  | Qwen2.5-0.5B | 0.291 (k=7) | 0.291 | [0.285, 0.298] |
+  | Mistral-7B | 0.226 (k=9) | 0.199 | [0.198, 0.201] |
+  | Llama-3.1-8B | 0.248 (k=11) | 0.197 | [0.195, 0.199] |
+
+  **Result:** at fixed k=7 the GPT-2/Qwen (~0.29) vs Llama/Mistral (~0.198) gap **widens** to
+  ΔO_h ≈ 0.093 (CIs nowhere near overlapping). The variable d_local was *masking* part of the
+  effect — Llama/Mistral used larger d_local (9/11), which inflated their O_h toward 0.226/0.248. So
+  the architectural difference is **real geometry, not a d_local artifact** — this refutes the
+  anti-NQP caveat we raised about the metric. Two consequences: (i) Case B is hardened; (ii) the
+  d_int↔O_h correlation (higher intrinsic dim ⇒ lower overlap; raised in the ChatGPT cross-check) is
+  legitimate as an *observation* (it persists at fixed k), though still **not causal**. Llama (0.197)
+  and Mistral (0.199) are nearly identical at fixed k — same 32/8/4/128 attention, different
+  training/data, same O_h ⇒ O_h is set by the *attention architecture*, not model size.
+
 ### Phase 3 — Write-up integration *(only after G2)*
 - Add a cross-architecture subsection + one figure (O_h vs architecture with CIs, analogous to Fig 2).
 - **Title/abstract change only if Case A or B holds** (per `tarea.txt`: do not touch the title until

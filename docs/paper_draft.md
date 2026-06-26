@@ -1,7 +1,8 @@
-# A Scale-Invariant Atlas of Head-Specific Manifolds in Transformer Residual Attention
+# An Atlas of Head-Specific Residual Manifolds Across Autoregressive Transformer Architectures
 
+<!-- Prior title (GPT-2-only result): "A Scale-Invariant Atlas of Head-Specific Manifolds in Transformer Residual Attention" -->
 <!-- Conservative-title alternative: "Head-Specific Nonlinear Manifolds in Transformer Residual Attention" -->
-<!-- Prior working title: "Non-Aligned Manifold Atlas in Transformer Residual Attention" -->
+<!-- Earlier working title: "Non-Aligned Manifold Atlas in Transformer Residual Attention" -->
 
 **Juan Pablo Chancay**¹, **Claude (Opus 4.8 / Sonnet 4.6)**²
 
@@ -15,19 +16,24 @@
 ## Abstract
 
 We study the geometry of the *residual* of attention — what remains of a head's output after
-subtracting its single most-attended value vector. Across the GPT-2 family (124M–774M parameters)
-this residual is organized as a **scale-invariant atlas of head-specific nonlinear manifolds**.
-The central result is the *non-alignment between heads*: the mean pairwise subspace overlap is
-O_h ≈ 0.28 (95% bootstrap CI [0.27, 0.29]), and it is statistically indistinguishable across a 6×
-change in model size — the per-model confidence intervals overlap.
-Within this structure, each head's residual is a low-dimensional nonlinear manifold — intrinsic
-dimension (TwoNN ≈ 6–7) far below its linear rank (PCA ≈ 30) — and head-centering does not collapse
-the union, so the heads are not one shared manifold seen through different offsets. We rule out the
-two obvious linear stories (sparse selection and global low-rank compression) explicitly. Finally,
-this scale-invariant geometric micro-structure coexists with macroscopic thermodynamic observables
-that are *not* scale-invariant (a crystallization depth L_c, derived from softmax-as-Boltzmann),
-separating an invariant geometric core from capacity-dependent dynamics. We use "atlas"
-descriptively — a collection of local charts — not as a claim of a formal fiber bundle.
+subtracting its single most-attended value vector. Across **four autoregressive transformer
+families — GPT-2, Qwen2.5, Llama-3.1, and Mistral** — this residual is organized as an **atlas of
+head-specific nonlinear manifolds**, and the heads occupy **mutually non-aligned subspaces** (mean
+pairwise overlap O_h ≪ 1 in every model). The existence of this head-wise organization is robust
+across every architecture we test — MHA *and* grouped-query attention (GQA), LayerNorm *and*
+RMSNorm, learned positions *and* RoPE — while the *magnitude* of the overlap is architecture-specific
+and clusters by attention design: GPT-2/Qwen sit near O_h ≈ 0.28 and Llama/Mistral (identical 32-head
+/ 8-KV / d_head-128 attention) near O_h ≈ 0.20, with non-overlapping bootstrap intervals that widen
+under a fixed-dimensionality control. Within the GPT-2 family the overlap is additionally
+scale-invariant (statistically indistinguishable across a 6× change in model size) and
+corpus-invariant. Within this structure, each head's residual is a low-dimensional nonlinear manifold
+— intrinsic dimension (TwoNN ≈ 7–11) far below its linear rank (PCA ≈ 30) — and head-centering does
+not collapse the union, so the heads are not one shared manifold seen through different offsets. We
+rule out the two obvious linear stories (sparse selection and global low-rank compression)
+explicitly. Finally, this geometric micro-structure coexists with macroscopic thermodynamic
+observables that are *not* scale-invariant (a crystallization depth L_c, derived from
+softmax-as-Boltzmann), separating an invariant geometric core from capacity-dependent dynamics. We
+use "atlas" descriptively — a collection of local charts — not as a claim of a formal fiber bundle.
 
 ---
 
@@ -286,6 +292,60 @@ Recomputing O_h on a second corpus (C4) gives O_h = 0.277, 95% CI [0.269, 0.285]
 [0.276, 0.292] on WikiText-103 — the two CIs overlap (cross-corpus spread 0.007). This addresses the
 most direct alternative explanation ("is this a corpus artifact?"): it is not (Figure S2).
 
+### 3.1b (Very strong) The non-alignment generalizes across architectures; its magnitude clusters by attention design
+
+The result above is established within the GPT-2 family. To ask whether it is a GPT-2 idiosyncrasy
+or a property of autoregressive transformers, we re-run the identical protocol on three further
+families that differ in every architectural axis GPT-2 fixes: **Qwen2.5** (GQA, RMSNorm, RoPE),
+**Llama-3.1-8B**, and **Mistral-7B** (GQA, RMSNorm, RoPE, d_head = 128). Grouped-query attention
+requires a measurement choice: with n_rep query heads sharing one KV head, query-head pairs split
+into *intra-group* (shared value space → overlap inflated by the shared V) and *inter-group*
+(independent value spaces). We report the **inter-group** overlap, which is the apples-to-apples
+comparand to MHA, where every head already has its own value space (the intra/inter split, the
+KV-group mapping, and its validation are in Appendix E).
+
+| model | attention (Q/KV) | inter-group O_h (per-model d_local) | O_h at fixed d_local = 7 | 95% CI (k=7) | TwoNN |
+|---|---|---|---|---|---|
+| GPT-2 (124M)     | MHA 12/12 | 0.283 (k=7)  | 0.283 | [0.276, 0.290] | 7.1 |
+| Qwen2.5-0.5B     | GQA 14/2  | 0.290 (k=7)  | 0.291 | [0.285, 0.298] | 7.1 |
+| Llama-3.1-8B     | GQA 32/8  | 0.248 (k=11) | 0.197 | [0.195, 0.199] | 10.8 |
+| Mistral-7B       | GQA 32/8  | 0.226 (k=9)  | 0.199 | [0.198, 0.201] | 9.3 |
+
+Two findings, of different strengths:
+
+1. **Existence is robust across architectures (very strong).** Every model has O_h ≪ 1 — the atlas
+   of non-aligned per-head manifolds survives MHA *and* GQA, LayerNorm *and* RMSNorm, learned
+   positions *and* RoPE. The qualitative result is not a GPT-2 artifact; it holds across every
+   autoregressive family we tested.
+2. **Magnitude is architecture-specific and clusters by attention design (strong).** GPT-2 and Qwen
+   sit near 0.28; Llama and Mistral near 0.20, with non-overlapping CIs. Crucially, **Llama and
+   Mistral — which share the *identical* 32-head / 8-KV / d_head-128 attention but differ in training
+   data and corpus — land on essentially the same value** (0.197 vs 0.199 at fixed d_local). The
+   overlap magnitude is therefore set by the *attention architecture*, not by model size or training
+   corpus.
+
+**A fixed-dimensionality control (the difference is real geometry, not a metric artifact).** Because
+O_h rises with d_local and the four models have different intrinsic dimensions (TwoNN 7→11), the
+per-model d_local could in principle confound the cross-model comparison. Fixing d_local = 7 for all
+four removes this: the GPT-2/Qwen (≈ 0.29) vs Llama/Mistral (≈ 0.20) gap does not shrink — it
+*widens* to ΔO_h ≈ 0.09 (the variable d_local had been inflating Llama/Mistral toward their larger
+intrinsic dimension). The architectural difference is genuine geometry. As an observation (not a
+causal claim), the magnitude tracks intrinsic dimension: the families with higher TwoNN (Llama 10.8,
+Mistral 9.3) are the more orthogonal ones, even at matched d_local.
+
+We therefore promote the claim to its architecture-aware form:
+
+> *Across four autoregressive transformer families, attention heads consistently organize into
+> non-aligned low-dimensional residual manifolds. The existence of this head-wise organization is
+> robust across every architecture tested, while the magnitude of inter-head overlap is
+> architecture-specific and clusters by attention design.*
+
+![Figure 6: O_h across architectures](figures/fig6_crossarch.png)
+
+**Figure 6.** Inter-group O_h across four autoregressive families, at fixed d_local = 7, with 95%
+bootstrap CIs. Existence is universal (all ≪ 1); magnitude clusters by attention design — GPT-2/Qwen
+(d_head 64) near 0.28, Llama/Mistral (d_head 128) near 0.20.
+
 ### 3.2 (Strong) Each head is a low-dimensional nonlinear manifold
 
 Per head, the residual's intrinsic dimension (TwoNN ≈ 6–7) is far below its linear rank
@@ -426,6 +486,18 @@ seek to remove redundancy. We relate by *negation*: we explicitly refute the spa
 (Top-k) and global low-rank stories for the residual (§3.5), which distinguishes our object from
 compressible-attention claims and motivates the nonlinear, per-head view.
 
+**Cross-architecture head geometry (closest prior work).** Two recent lines touch our axis directly.
+The Projection Kernel of Tran et al. [17] also measures principal-angle subspace affinity *between
+heads*, but on attention-*weight* matrices (W_Q…W_O) *across layers* in GPT-2 small — we differ by
+studying the *activation residual* ε, *within-layer*, *across four architectures*. Valeriani et
+al. [18] show an architecture-consistent expand-then-contract intrinsic-dimension profile of
+*whole-layer* hidden representations via TwoNN — we differ by the *per-head residual* object and the
+*inter-head non-alignment*, neither of which a whole-layer dimension captures. On the redundancy
+side, CHAI [19] clusters heads with similar full-output cosine in Llama for inference pruning; we
+measure subspace geometry of the residual, not output similarity, and report non-alignment rather
+than redundancy. Our models are GPT-2 [14], Qwen2.5 [20], Llama-3.1 [21], and Mistral [22]; GQA
+itself is from Ainslie et al. [23].
+
 Anticipated objection — *"isn't this just intrinsic dimension applied to activations?"* The answer
 is the *system* of evidence: scale-invariance (§3.1, §3.3) + refutation of the linear stories (§3.5)
 + the inter-head non-alignment that no single dimensionality measurement captures (§3.1). No single
@@ -435,8 +507,16 @@ metric carries the claim.
 
 ## 6. Limitations and Threats to Validity
 
-- **Family scope.** Scale-invariance is established within the GPT-2 family and a fixed training
-  distribution; we do not test Llama, Mistral, or other architectures.
+- **Architecture scope.** Existence of the non-aligned atlas is established across four
+  *autoregressive decoder-only* families (GPT-2, Qwen2.5, Llama-3.1, Mistral; §3.1b). We do not test
+  encoder (BERT-style), encoder–decoder (T5-style), or non-attention (state-space) models, so "across
+  architectures" means *across the autoregressive transformer architectures tested*, not universal.
+  The *magnitude* of O_h is architecture-specific (a finding, not a limitation), but we have only four
+  points and cannot yet isolate which component (GQA, d_head, normalization, positional scheme) drives
+  it — see Future Work.
+- **Scale-invariance is within-family.** The stronger *scale-invariance* of O_h (statistical
+  indistinguishability under a change of model size) and *corpus-invariance* are established within
+  the GPT-2 family and a fixed training distribution; cross-family, the magnitude is not constant.
 - **"Atlas" is descriptive.** We measure local chart dimension and inter-chart non-alignment. We do
   **not** measure transition maps between charts, global differentiable consistency, or a base/fiber
   structure. We therefore do not claim a formal fiber bundle. O_h ≠ 1 is necessary but not
@@ -457,12 +537,23 @@ structure *across* heads despite their non-aligned charts; exploitation that tar
 *global* geometry rather than a per-point bottleneck; and asking whether the residual is better
 described as high-entropy integration noise (cf. §3.5) than as a compressible code at all.
 
-**Structural and external validity.** (i) Cross-architecture generalization (Llama, Mistral): is the
-~0.28 non-alignment a GPT-2-family property or universal? (ii) Promoting "atlas" toward a formal
-claim by *measuring transition maps* between head charts and their differentiable consistency — the
-step we deliberately do not take here. (iii) Mutual information between heads as an
-information-theoretic complement to the geometric overlap. (iv) A renormalization-group view of the
-depth-wise crystallization (§3.6).
+**What controls the magnitude? (the new central question).** §3.1b answers the existence question
+(the atlas generalizes) and *replaces* it with a sharper one: the overlap magnitude clusters by
+attention design, so **which architectural component sets O_h?** Our four points already give a
+lead — GPT-2 (d_head 64) and Qwen (d_head 64) sit near 0.28 while Llama/Mistral (d_head 128) sit near
+0.20, even though Qwen already has GQA/RoPE/RMSNorm — implicating **head dimension** over the mere
+presence of GQA. A controlled ablation over {MHA↔GQA, number of KV heads, d_head, RoPE↔learned,
+RMSNorm↔LayerNorm} on matched-scale models would isolate the driver. Caveat (the NQP lesson): this
+would establish *architecture → O_h* (mechanistic, tractable), **not** *O_h → model quality*
+(interventional, requires retraining) — two distinct causal questions that must not be conflated.
+
+**Other directions.** (i) Cross-*paradigm* generalization beyond autoregressive decoders (encoder,
+encoder–decoder, state-space). (ii) Promoting "atlas" toward a formal claim by *measuring transition
+maps* between head charts and their differentiable consistency — the step we deliberately do not take
+here. (iii) Mutual information between heads as an information-theoretic complement to the geometric
+overlap. (iv) A renormalization-group view of the depth-wise crystallization (§3.6). (v) Beyond
+per-head autoencoding: routing/mixture parametrizations that share structure *across* heads despite
+their non-aligned charts (extends the negative of §3.7).
 
 ---
 
@@ -495,6 +586,39 @@ size and to which deep layer is used (spreads ≤ 0.008); (iii) O_h rises monoto
 WikiText-103 vs 0.277 [0.269, 0.285] on C4 — CIs overlap, spread 0.007. The non-alignment is
 data-independent within this regime.
 
+## Appendix E — Cross-architecture protocol and the GQA pair split
+
+**Extraction.** For each model we hook every target `self_attn` layer, recompute the per-head
+attention exactly as the model does — `q/k/v` projections, RoPE on q,k, `repeat_kv` to expand the
+KV heads to query heads, causal softmax — and form the residual ε = Attn − a·V_{i\*} per **query**
+head. This is the same definition as for GPT-2; only the projection layout differs (separate
+`q_proj/k_proj/v_proj` and RMSNorm vs GPT-2's fused `c_attn` and LayerNorm). A regression gate
+confirms the refactor is exact: GPT-2 reproduces O_h = 0.283 bit-for-bit through the generalized
+path, and the same protocol in fp16 on GPU reproduces it (0.283), so neither precision nor device
+moves the geometry.
+
+**The KV-group split (necessary for GQA).** Under GQA, n_rep = n_q / n_kv query heads share one KV
+head, so `repeat_kv` lays the query heads out in contiguous blocks; the KV group of query head h is
+g = ⌊h / n_rep⌋ (verified against the HF implementation and unit-tested on the resulting pair
+counts). A pair (h_i, h_j) is **intra-group** if g_i = g_j (shared value space) and **inter-group**
+otherwise. Intra-group pairs share V and therefore have an inflated overlap (e.g. Llama-8B: intra
+0.64 vs inter 0.25); MHA has no intra-group pairs, so the **inter-group** overlap is the only
+apples-to-apples comparand across MHA and GQA, and it is the number reported in §3.1b.
+
+| model | n_q / n_kv | n_rep | pairs (global / intra / inter) |
+|---|---|---|---|
+| GPT-2 | 12 / 12 | 1 | 66 / 0 / 66 |
+| Qwen2.5-0.5B | 14 / 2 | 7 | 91 / 42 / 49 |
+| Llama-3.1-8B | 32 / 8 | 4 | 496 / 48 / 448 |
+| Mistral-7B | 32 / 8 | 4 | 496 / 48 / 448 |
+
+**Compute.** 7–8B models were run forward-only in fp16 on a single 16 GB GPU; Llama-3.1-8B used
+device-map offload of overflow layers to CPU in **full fp16 (no quantization)**, so the geometry is
+unaltered. d_local was set per model from its own TwoNN, and §3.1b additionally reports a fixed
+d_local = 7 control. Data: `docs/phase2_results.json` and `docs/phase2_control.json`; code:
+`src/atlas_crossarch.py` (split + per-model run) and `src/residual_backends.py` (architecture-
+agnostic extraction).
+
 ## Appendix C — Reproducibility
 
 Code: `src/residual.py` (decomposition), `src/intrinsic.py` (TwoNN), `src/manifold.py`
@@ -503,10 +627,15 @@ Code: `src/residual.py` (decomposition), `src/intrinsic.py` (TwoNN), `src/manifo
 `src/atlas_intercorpus.py` (WikiText vs C4 control), `src/autoencoder.py` (per-head AE, Q06),
 `src/scaling.py`
 (dim + L_c across scale), `src/thermo.py` (Boltzmann observables, S_vn), `src/crystallize.py`
-(Top-k baseline). Theory map: `theory/quantum_transformer_map.md`. Data: WikiText-103 validation
-(and C4 for the inter-corpus control). All cross-scale comparisons use fixed N / heads / relative
-depth. Figures are regenerated from `src/figure_data.py` (→ `docs/figure_data.json`) and
-`src/make_figures.py` (→ `docs/figures/`).
+(Top-k baseline), `src/residual_backends.py` (architecture-agnostic residual extraction:
+GPT-2 / Llama / Mistral / Qwen2 backends), `src/atlas_crossarch.py` (cross-architecture O_h with the
+GQA intra/inter-group split). A regression gate (`tests/test_phase0_regression.py`) holds the GPT-2
+result fixed across the refactor. Theory map: `theory/quantum_transformer_map.md`. Data: WikiText-103
+validation (and C4 for the inter-corpus control). All cross-scale comparisons use fixed N / heads /
+relative depth; cross-architecture runs use the deepest layer, matched N = 1200, and per-model
+d_local (Appendix E). Figures are regenerated from `src/figure_data.py` (→ `docs/figure_data.json`)
+and `src/make_figures.py` (→ `docs/figures/`). Cross-architecture data:
+`docs/phase2_results.json`, `docs/phase2_control.json`.
 
 ## Appendix D — Supplementary figures
 
@@ -595,3 +724,26 @@ Conference on Learning Representations (ICLR)*, 2017. arXiv:1609.07843.
 [16] C. Raffel, N. Shazeer, A. Roberts, K. Lee, S. Narang, M. Matena, Y. Zhou, W. Li, P. J. Liu.
 "Exploring the limits of transfer learning with a unified text-to-text transformer." *Journal of
 Machine Learning Research (JMLR)* 21(140):1–67, 2020. arXiv:1910.10683.
+
+[17] "Measuring affinity between attention-head weight subspaces via the projection kernel."
+arXiv:2601.10266, 2026. [verify — authors/venue to confirm in reference manager]
+
+[18] L. Valeriani, D. Doimo, F. Cuturello, A. Laio, A. Ansuini, A. Cazzaniga. "The geometry of hidden
+representations of large transformer models." *Advances in Neural Information Processing Systems
+(NeurIPS)*, 2023. arXiv:2302.00294.
+
+[19] S. Agarwal, B. Acun, B. Hosmer, M. Elhoushi, Y. Lee, et al. "CHAI: Clustered head attention for
+efficient LLM inference." *International Conference on Machine Learning (ICML)*, 2024.
+arXiv:2403.08058.
+
+[20] Qwen Team. "Qwen2.5 technical report." arXiv:2412.15115, 2024.
+
+[21] A. Grattafiori, A. Dubey, et al. (Llama Team, AI @ Meta). "The Llama 3 herd of models."
+arXiv:2407.21783, 2024.
+
+[22] A. Q. Jiang, A. Sablayrolles, A. Mensch, C. Bamford, et al. "Mistral 7B." arXiv:2310.06825,
+2023.
+
+[23] J. Ainslie, J. Lee-Thorp, M. de Jong, Y. Zemlyanskiy, F. Lebrón, S. Sanghai. "GQA: Training
+generalized multi-query transformer models from multi-head checkpoints." *Proc. EMNLP*, 2023.
+arXiv:2305.13245.

@@ -206,6 +206,45 @@ def figS3_q06_negative(d):
     _save(fig, "figS3_q06_negative")
 
 
+def fig6_crossarch(d):
+    """O_h across four autoregressive families at fixed d_local=7, with bootstrap CIs.
+    Numbers from docs/phase2_control.json (cross-architecture run, single source of truth)."""
+    # (label, inter-group O_h at k=7, ci_lo, ci_hi, attention, d_head, color)
+    rows = [
+        ("GPT-2\nMHA 12/12",   0.283, 0.276, 0.290, 64,  "#2c7fb8"),
+        ("Qwen2.5\nGQA 14/2",  0.291, 0.285, 0.298, 64,  "#2c7fb8"),
+        ("Llama-3.1\nGQA 32/8", 0.197, 0.195, 0.199, 128, "#c0392b"),
+        ("Mistral\nGQA 32/8",  0.199, 0.198, 0.201, 128, "#c0392b"),
+    ]
+    labels = [r[0] for r in rows]
+    ys = [r[1] for r in rows]
+    lo = [r[1] - r[2] for r in rows]
+    hi = [r[3] - r[1] for r in rows]
+    colors = [r[5] for r in rows]
+    xs = list(range(len(rows)))
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.3))
+    ax.bar(xs, ys, yerr=[lo, hi], capsize=5, color=colors, alpha=0.85,
+           edgecolor="black", lw=0.6)
+    ax.axhline(1.0, ls="--", color="gray", lw=1)
+    ax.text(len(rows) - 1, 0.96, "shared-subspace ($O_h=1$)", ha="right", va="top",
+            fontsize=8, color="gray")
+    # cluster annotations
+    ax.text(0.5, 0.34, "d_head 64\n$O_h\\approx0.28$", ha="center", fontsize=8,
+            color="#2c7fb8")
+    ax.text(2.5, 0.25, "d_head 128\n$O_h\\approx0.20$", ha="center", fontsize=8,
+            color="#c0392b")
+    for x, y in zip(xs, ys):
+        ax.text(x, y + 0.045, f"{y:.3f}", ha="center", fontsize=8)
+    ax.set_xticks(xs); ax.set_xticklabels(labels, fontsize=8)
+    ax.set_ylim(0, 1.05)
+    ax.set_ylabel("inter-group  $O_h$  (fixed $d_{local}=7$)")
+    ax.set_title("Existence is universal ($O_h\\ll1$); magnitude clusters by attention design\n"
+                 "Llama/Mistral (identical 32/8/128 attention) coincide", fontsize=9.5)
+    ax.grid(axis="y", alpha=0.3)
+    _save(fig, "fig6_crossarch")
+
+
 def _save(fig, name):
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name + ".png")
@@ -222,6 +261,7 @@ def main():
     fig3_pca_vs_intrinsic(d)
     fig4_pipeline(d)
     fig5_atlas_schematic(d)
+    fig6_crossarch(d)
     figS1_dlocal_sweep(d)
     figS2_intercorpus(d)
     figS3_q06_negative(d)
