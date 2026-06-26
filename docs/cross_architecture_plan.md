@@ -228,6 +228,67 @@ the hypothesis.
 
 ---
 
+## 7. Architectural exploitation — evaluation and revised order (2026-06-26)
+
+After the Qwen TwoNN≈6 signal we evaluated four candidate architectures for exploiting the atlas
+(proposed in adversarial collaboration; J.P. Chancay is the final arbiter). The candidates:
+**(A) Atlas-Routed Attention** (per-head encoder → router → top-k heads), **(B) shared base +
+per-head charts** (M_i = Φ_i(M_base)), **(C) overlap regularization** (L_atlas = λ Σ O(h_i,h_j) or
+(O−c)²), **(D) Dynamic Head MoE**.
+
+**Decision and caveats (the points that keep us from repeating NQP):**
+
+1. **"Heads are geometric experts" is a hypothesis, not a measured fact.** O_h≈0.28 says the
+   subspaces are non-aligned; it does **not** say each head computes a distinct *function*. The
+   decoupling could be optimization-induced (interference minimization) with no semantic content —
+   the causal-vs-descriptive question (paper §4). Building A/D on the "expert" assumption risks a
+   router with nothing to route. **Prerequisite before any routing architecture: measure whether the
+   specialization is *functional*, not just geometric** (e.g. targeted ablation — does skipping the
+   most mutually-aligned heads damage *less* than skipping the most orthogonal ones?).
+
+2. **Architecture B is already in tension with our own data.** If a shared M_base existed and heads
+   were charts of it, head-centering should have collapsed the pooled dimension — it did **not**
+   (§3.1), and O_h≈0.28 (far from 1) says the subspaces are genuinely distinct, not offset-charts of
+   a common base. B survives only if Φ_i is *nonlinear* (not a linear base/offset change) — i.e. the
+   multi-month research, not a near-term bet.
+
+3. **Architecture C's stated risk is the fatal one.** "We don't know if lower overlap implies better
+   performance" — it might *worsen* it. If the atlas is a *consequence* of good training rather than a
+   *cause*, regularizing O_h→c imposes the phenomenon's shadow, not its mechanism — exactly NQP-C1's
+   error (forcing the Fisher basis while ignoring what Fisher optimizes). **C must not ship without
+   at least a correlational signal that O_h moves with quality.**
+
+**Revised roadmap (Phase A–D, exploitation track — only after cross-arch validation):**
+- **Phase A (no architecture change):** measure the atlas *during training*, *during fine-tuning*,
+  and *across Llama/Mistral*; **plus** the new functional-specialization test (1). Decides whether
+  routing (A/D) has real substrate or only descriptive geometry (B/C) is honest.
+- **Phase B:** overlap regularization — cheapest experiment, **gated on** a prior correlational
+  signal from Phase A (caveat 3).
+- **Phase C:** head router (ARA) — only if Phase A shows functional specialization.
+- **Phase D:** full Atlas Transformer — only if A–C work.
+
+**The bigger reframe (shared across collaborators):** if Llama confirms TwoNN≈6–7, the central
+question shifts from *"how to exploit the atlas?"* to *"why does training Transformers inevitably
+produce a ~6–7D atlas?"* — which would make it an **emergent representational law**, not a GPT-2
+quirk. That is the higher-value scientific target, and it does not require an applied payoff to be
+worth pursuing.
+
+## 8. Collaboration protocol (for the record)
+
+Research decisions in this project are cross-checked with a second model (ChatGPT) that brings a
+distinct research perspective. **Governance, fixed:** J.P. Chancay is the sole final arbiter and
+interlocutor; he sets the questions and makes the base/final decisions. Any future API-based
+collaboration must be built as an **adversarial-collaboration harness**, not a consensus engine:
+the second model receives the *same neutral factual context* (data, not our pre-formed conclusions),
+produces an *independent* analysis, and both analyses are presented side-by-side with agreements and
+disagreements highlighted for the human to decide. Rationale: the value is in *informed disagreement*
+(which localizes uncertainty), not in easy convergence (an echo chamber). **Deferred until after the
+cross-architecture validation** — it is meta-decision infrastructure, off the current critical path.
+Security note: any OpenAI key lives in an environment variable, never on disk in the repo (cf. the
+HF-token incident, now gitignored).
+
+---
+
 ## Sources (web research, 2026-06-26)
 
 - [Measuring Affinity between Attention-Head Weight Subspaces via the Projection Kernel (arXiv:2601.10266)](https://arxiv.org/abs/2601.10266)
