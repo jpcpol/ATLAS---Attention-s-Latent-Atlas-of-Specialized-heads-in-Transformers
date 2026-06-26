@@ -333,6 +333,17 @@ intrinsic dimension). The architectural difference is genuine geometry. As an ob
 causal claim), the magnitude tracks intrinsic dimension: the families with higher TwoNN (Llama 10.8,
 Mistral 9.3) are the more orthogonal ones, even at matched d_local.
 
+**A within-model robustness control (the clustering is not sampling noise).** To confirm that the
+per-model O_h is a stable property rather than an artifact of the single layer or seed we report, we
+re-measure the inter-group O_h at fixed d_local = 7 across the three deepest layers × two random
+seeds for each non-MHA family, with per-cell bootstrap CIs. The within-model variation is an order
+of magnitude below the cross-architecture separation in every case: Qwen depth-spread 0.017 /
+seed-spread 0.005 (mean 0.283), Mistral 0.006 / 0.002 (mean 0.198), Llama 0.003 / 0.001 (mean
+0.196). The largest within-model wobble (Qwen, 0.017) is ≈ 5× smaller than the ≈ 0.08 gap between
+the two d_head clusters, and Llama and Mistral — identical attention geometry — agree to 0.002. The
+clustering by attention design is therefore stable across depth and seed, not an artifact of any one
+measurement (full table in Appendix E).
+
 We therefore promote the claim to its architecture-aware form:
 
 > *Across four autoregressive transformer families, attention heads consistently organize into
@@ -618,6 +629,21 @@ unaltered. d_local was set per model from its own TwoNN, and §3.1b additionally
 d_local = 7 control. Data: `docs/phase2_results.json` and `docs/phase2_control.json`; code:
 `src/atlas_crossarch.py` (split + per-model run) and `src/residual_backends.py` (architecture-
 agnostic extraction).
+
+**Within-model robustness (depth × seed).** For each non-MHA family we measured the inter-group O_h
+at fixed d_local = 7 across the three deepest layers × two seeds (42, 123), with a 2000-resample
+bootstrap CI per cell (`ax.robustness`). The verdict compares the within-model wobble against the
+cross-architecture gap (≈ 0.08): all three are STABLE (wobble ≪ gap).
+
+| model | mean O_h (k=7) | depth-spread | seed-spread | wobble vs gap | verdict |
+|---|---|---|---|---|---|
+| Qwen2.5-0.5B | 0.283 | 0.017 | 0.005 | 0.017 vs 0.08 | STABLE |
+| Mistral-7B | 0.198 | 0.006 | 0.002 | 0.006 vs 0.08 | STABLE |
+| Llama-3.1-8B | 0.196 | 0.003 | 0.001 | 0.003 vs 0.08 | STABLE |
+
+The per-cell CIs are ±0.002; seeds are effectively interchangeable; and Llama vs Mistral (identical
+attention geometry) agree to 0.002. The d_head clustering is thus stable to the choice of layer and
+seed.
 
 ## Appendix C — Reproducibility
 

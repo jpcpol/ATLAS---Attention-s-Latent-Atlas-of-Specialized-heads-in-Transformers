@@ -279,6 +279,26 @@ valid first data point that still exercises RMSNorm+RoPE+GQA.
   and Mistral (0.199) are nearly identical at fixed k — same 32/8/4/128 attention, different
   training/data, same O_h ⇒ O_h is set by the *attention architecture*, not model size.
 
+- **✅ ROBUSTNESS CONTROL DONE (2026-06-26) — Case B clustering is stable across depth and seed.**
+  Before the architectural ablation we hardened §3.1b against the "single layer / single seed" risk:
+  `ax.robustness()` re-measures inter-group O_h at fixed d_local = 7 over the **3 deepest layers × 2
+  seeds**, per-cell bootstrap CI, with a verdict comparing the within-model wobble to the cross-arch
+  gap (≈ 0.08). Qwen ran locally (CPU); Mistral and Llama on the Colab T4 (Llama with CPU offload,
+  full fp16).
+
+  | model | mean O_h (k=7) | depth-spread | seed-spread | verdict |
+  |---|---|---|---|---|
+  | Qwen2.5-0.5B | 0.283 | 0.017 | 0.005 | STABLE |
+  | Mistral-7B | 0.198 | 0.006 | 0.002 | STABLE |
+  | Llama-3.1-8B | 0.196 | 0.003 | 0.001 | STABLE |
+
+  **Result:** the largest within-model wobble is Qwen's 0.017 — ≈ 5× below the 0.08 cluster gap.
+  Seeds are interchangeable (≤ 0.005); per-cell CIs are ±0.002; Llama and Mistral agree to 0.002.
+  The d_head clustering (64 → ~0.28, 128 → ~0.20) is **not an artifact of the reported layer or
+  seed**. §3.1b and Appendix E updated. The cross-architecture arc (Phase 0→1→2 + d_local + robustness)
+  is now closed; next gate is the **architectural ablation** (what component sets O_h? d_head is the
+  lead) — *but consult ChatGPT first, per §8.*
+
 ### Phase 3 — Write-up integration *(only after G2)*
 - Add a cross-architecture subsection + one figure (O_h vs architecture with CIs, analogous to Fig 2).
 - **Title/abstract change only if Case A or B holds** (per `tarea.txt`: do not touch the title until
