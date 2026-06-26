@@ -225,6 +225,17 @@ def run(model_name="Qwen/Qwen2.5-0.5B", device="cpu", n_blocks=12,
         print(f"      {k:>3} | {sweep[k]:>6.3f}")
     spread_k = max(sweep.values()) - min(sweep.values())
 
+    # ---- CONTROL: inter-group O_h at a COMMON fixed d_local=7 ----------------
+    # The "official" O_h above uses a per-model d_local (= its own TwoNN), so cross-model
+    # comparison mixes points on different O_h(k) curves. Fixing d_local=7 for every model
+    # removes that confound: if the GPT-2/Qwen vs Llama/Mistral gap survives at fixed k, the
+    # difference is real geometry, not a d_local artifact. With bootstrap CI.
+    p7 = partition_pairs(by_head, 7, n_rep)
+    seq7 = p7["inter"] if p7["inter"] else p7["global"]
+    mean7, lo7, hi7, _ = bootstrap_ci(seq7)
+    print(f"\n  [CONTROL] inter-group O_h at fixed d_local=7: "
+          f"{mean7:.3f}  95% CI [{lo7:.3f}, {hi7:.3f}]")
+
     # ---- Gate G1 verdict (on inter-group) -----------------------------------
     print(f"\n{'='*70}\n[GATE G1] {model_name}\n{'='*70}")
     print(f"  inter-group O_h = {mean_i:.3f}  95% CI [{lo_i:.3f}, {hi_i:.3f}]")
@@ -242,7 +253,8 @@ def run(model_name="Qwen/Qwen2.5-0.5B", device="cpu", n_blocks=12,
             "mean_dim": mean_dim, "parts_summary": {
                 k: (bootstrap_ci(v)[:3] if v else None) for k, v in parts.items()},
             "inter_O_h": mean_i, "inter_ci": (lo_i, hi_i), "dlocal_sweep": sweep,
-            "dlocal_spread": spread_k}
+            "dlocal_spread": spread_k,
+            "inter_O_h_k7": mean7, "inter_ci_k7": (lo7, hi7)}
 
 
 if __name__ == "__main__":
