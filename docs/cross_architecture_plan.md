@@ -367,6 +367,14 @@ d_head (between clusters) and NOT by scale (within a fixed d_head); d_head and p
 confounded. Next: a matched-scale ablation varying d_head with d_model/n_KV/depth/data fixed, *measuring
 plateau d_int post-hoc as a mediator* (exploratory only — post-treatment mediator, NOT a causal claim).
 
+**→ Design APPROVED (2026-06-26): see `docs/ablation_design.md`.** Batch-1 mini matched-scale (4
+models ~20M, vary d_head ∈ {32,64,128,256} as the (d_head, n_heads) package, 2 seeds, WikiText-103,
+Colab T4), vetted in two adversarial rounds. Frame softened to **fixed-point-like** (not "universality
+classes"). Gate 0 (atlas maturation) gates validity: a flat O_h from an immature model is INVALID, not
+a refutation. Claims the *total effect* of the intervention, not causation, not O_h→quality. Factorial
+batch-2 (separating d_head from n_heads) only if P1 is strong. Next step: development (training
+harness).
+
 ### Phase 3 — Write-up integration *(only after G2)*
 - Add a cross-architecture subsection + one figure (O_h vs architecture with CIs, analogous to Fig 2).
 - **Title/abstract change only if Case A or B holds** (per `tarea.txt`: do not touch the title until
