@@ -224,10 +224,13 @@ class LlamaBackend(ResidualBackend):
 # ---------------------------------------------------------------------------
 
 def _run_blocks(model, ids, seq_len, device, n_blocks):
+    # With device_map="auto" the model is sharded across GPU+CPU; inputs must enter on
+    # the embedding's device (tagged by the loader). Otherwise use the given device.
+    in_dev = getattr(model, "_nqp_input_device", device)
     nb = min(n_blocks, ids.numel() // seq_len)
     with torch.no_grad():
         for b in range(nb):
-            blk = ids[b * seq_len:(b + 1) * seq_len].unsqueeze(0).to(device)
+            blk = ids[b * seq_len:(b + 1) * seq_len].unsqueeze(0).to(in_dev)
             model(input_ids=blk)
 
 

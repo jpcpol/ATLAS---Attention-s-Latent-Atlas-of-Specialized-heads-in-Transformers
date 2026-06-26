@@ -91,12 +91,16 @@ def _ci_line(name, vals):
 # loaders / collection
 # ---------------------------------------------------------------------------
 
-def _load_any(model_name, device, seed, dtype=None):
+def _load_any(model_name, device, seed, dtype=None, offload=False):
     """Generic causal-LM loader (GPT-2 / Llama / Mistral / Qwen2) + WikiText-103.
 
-    dtype defaults to float32 on CPU and float16 on cuda (a 7B fits in 16 GB VRAM in
-    fp16). Subspace geometry is robust to precision, but the GPU regression gate
-    (run GPT-2 in fp16 and check O_h=0.284) verifies this rather than assuming it.
+    dtype defaults to float32 on CPU and float16 on cuda. A 7B fits in 16 GB VRAM in
+    fp16; an 8B (Llama) does not on a 15 GB T4 — set offload=True to use
+    device_map="auto", which keeps the model in full fp16 (NO quantization — a clean
+    measurement, consistent with this project's anti-quantization origin) and spills
+    the overflow layers to CPU RAM. Slower, but the geometry is unaltered. Subspace
+    geometry is precision-robust; the GPU regression gate (GPT-2 fp16 → O_h≈0.284)
+    verifies this rather than assuming it.
     """
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from datasets import load_dataset
@@ -110,10 +114,18 @@ def _load_any(model_name, device, seed, dtype=None):
     tok = AutoTokenizer.from_pretrained(model_name)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
-    # On GPU, stream shards straight into VRAM (device_map) with low_cpu_mem_usage so a
-    # 7B fp16 model does not have to fit in Colab's ~12 GB system RAM during load — the
-    # cause of the OOM that kills "Loading weights" partway through. On CPU, load plainly.
-    if is_cuda:
+    if is_cuda and offload:
+        # auto-shard across GPU + CPU (full fp16). Inputs must enter on the embedding's
+        # device; accelerate routes the rest. We tag that device for _run_blocks.
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, dtype=dtype, device_map="auto", low_cpu_mem_usage=True)
+        try:
+            in_dev = next(model.parameters()).device
+        except StopIteration:
+            in_dev = torch.device(device)
+        model._nqp_input_device = in_dev
+    elif is_cuda:
+        # whole model into VRAM; stream shards so system RAM is not the bottleneck.
         model = AutoModelForCausalLM.from_pretrained(
             model_name, dtype=dtype, device_map=device, low_cpu_mem_usage=True)
     else:
@@ -158,9 +170,9 @@ def _deep_query_heads(model, ids, layer, device, n_blocks, n_points):
 # ---------------------------------------------------------------------------
 
 def run(model_name="Qwen/Qwen2.5-0.5B", device="cpu", n_blocks=12,
-        n_points=1200, seed=42, g1_threshold=0.6):
-    print(f"[Atlas-crossarch] {model_name}")
-    model, ids = _load_any(model_name, device, seed)
+        n_points=1200, seed=42, g1_threshold=0.6, offload=False):
+    print(f"[Atlas-crossarch] {model_name}" + ("  [offload]" if offload else ""))
+    model, ids = _load_any(model_name, device, seed, offload=offload)
     geo = model_head_geometry(model)
     n_rep = geo["n_rep"]
     deep = geo["n_layer"] - 1
