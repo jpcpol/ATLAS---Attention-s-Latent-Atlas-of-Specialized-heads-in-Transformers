@@ -299,6 +299,41 @@ valid first data point that still exercises RMSNorm+RoPE+GQA.
   is now closed; next gate is the **architectural ablation** (what component sets O_h? d_head is the
   lead) — *but consult ChatGPT first, per §8.*
 
+- **✅ INTRA-MODEL CONTROL DONE (2026-06-26) — d_head is confounded with d_int.** ChatGPT's "favourite"
+  cheap control (no retraining): *within* a single model, correlate each head's intrinsic dimension
+  d_int_h against its mean inter-group overlap Ō_h (Spearman ρ, permutation p, pooled over 3 deep
+  layers, d_local=7). `src/atlas_intramodel.py`; data `docs/intramodel_{gpt2,qwen}.json`.
+
+  | model | d_head | n | ρ(d_int_h, Ō_h) | perm p | reading |
+  |---|---|---|---|---|---|
+  | GPT-2 | 64 | 36 | −0.26 | 0.13 | same sign, not significant |
+  | Qwen2.5-0.5B | 64 | 42 | −0.53 | 0.0003 | significant negative |
+
+  **Result:** in Qwen the d_int↔O_h link is clearly *per-head* (higher d_int ⇒ lower overlap, p=3e-4),
+  not only between-architecture; GPT-2 shows the same sign without significance (n=36, low power). So
+  **d_int is a real confounder for the d_head lead** — the cross-arch magnitude must NOT be attributed
+  to d_head until the two are disentangled. Consequence for the ablation: it must vary d_head while
+  **tracking d_int as a mediator**, not treat d_head as the isolated cause. §3.1b + §7 + new Appendix F
+  updated to this cautious framing (lead demoted "implicating" → "leading suspect, confounded").
+
+- **✅ O_h(k) SWEEP DONE (2026-06-26) — the cluster gap is a vertical offset of the whole curve.**
+  Full k=4..10 sweep for GPT-2 and Qwen (the d_head-64 cluster); for Llama/Mistral only the k=7 +
+  per-model-TwoNN points (fine sweep not run — would need Colab; slope+offset already clear, so the
+  extra compute is low-yield, anti-NQP).
+
+  | k | GPT-2 | Qwen | gap64 (cohesion) |
+  |---|---|---|---|
+  | 4 | 0.210 | 0.232 | 0.022 |
+  | 7 | 0.284 | 0.290 | 0.006 |
+  | 10 | 0.340 | 0.346 | 0.006 |
+
+  **Result:** the two d_head-64 models trace a *common* O_h(k) curve (max cohesion gap 0.022, usually
+  ≤0.006) → same régime, not just same point. The d_head-128 cluster is below it wherever compared:
+  gap 0.089 at k=7, and crucially **Mistral@k=9 (0.226) < Qwen@k=9 (0.325)** and Llama@k=11 (0.248) <
+  Qwen@k=10 (0.346) — the 128 curve is shifted DOWN at every k, not crossing. So the separation is not
+  a k=7 artifact. Note added to §3.1b. Combined with the intra-model control: the gap is real geometry
+  (sweep), but cannot yet be named a "d_head effect" because d_head and d_int are entangled (intra).
+
 ### Phase 3 — Write-up integration *(only after G2)*
 - Add a cross-architecture subsection + one figure (O_h vs architecture with CIs, analogous to Fig 2).
 - **Title/abstract change only if Case A or B holds** (per `tarea.txt`: do not touch the title until

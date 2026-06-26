@@ -1,0 +1,19 @@
+{
+  "date": "2026-06-26",
+  "note": "Inter-group O_h vs d_local (k). Full k=4..10 sweep for the d_head-64 cluster (GPT-2, Qwen). For the d_head-128 cluster (Llama, Mistral) only k=7 + per-model-TwoNN points were collected (fine sweep not run). Confirms the cluster gap is a vertical offset of the whole O_h(k) curve, not a k=7 artifact.",
+  "d_head_64": {
+    "gpt2":  {"4": 0.210, "5": 0.241, "6": 0.264, "7": 0.284, "8": 0.300, "9": 0.321, "10": 0.340},
+    "qwen2_5_0_5b": {"4": 0.232, "5": 0.251, "6": 0.269, "7": 0.290, "8": 0.311, "9": 0.325, "10": 0.346},
+    "cohesion_max_gap": 0.022
+  },
+  "d_head_128": {
+    "mistral_7b_v0_1": {"7": 0.199, "9": 0.226},
+    "llama_3_1_8b":    {"7": 0.197, "11": 0.248}
+  },
+  "key_comparisons": {
+    "gap_at_k7": 0.089,
+    "mistral_k9_vs_qwen_k9": [0.226, 0.325],
+    "llama_k11_vs_qwen_k10": [0.248, 0.346]
+  },
+  "verdict": "The d_head-64 models share a common O_h(k) curve (cohesion <=0.022); the d_head-128 cluster is below it at every comparable k. Separation is a downward offset of the whole curve, robust to the choice of d_local."
+}

@@ -344,6 +344,30 @@ the two d_head clusters, and Llama and Mistral — identical attention geometry 
 clustering by attention design is therefore stable across depth and seed, not an artifact of any one
 measurement (full table in Appendix E).
 
+**The cluster separation is a vertical offset of the whole O_h(k) curve, not an artifact of k = 7.**
+Sweeping d_local k = 4..10, the two d_head-64 models trace a *common* O_h(k) curve (GPT-2 and Qwen
+agree to ≤ 0.022 at every k, typically ≤ 0.006), so they share a régime, not just a point. The
+d_head-128 cluster sits below that curve wherever the two can be compared: at the shared k = 7 the
+gap is 0.089, and the offset persists off k = 7 — Mistral at k = 9 (0.226) is still below Qwen at the
+same k = 9 (0.325), and Llama at k = 11 (0.248) below Qwen at k = 10 (0.346). The separation is thus
+a downward shift of the entire curve, not a feature of the reported d_local. (We ran the fine k-sweep
+for GPT-2 and Qwen; for Llama and Mistral we have the k = 7 point and their per-model-TwoNN point,
+which fix slope and offset but not the intermediate samples.)
+
+**A within-model control on the candidate driver (d_head is entangled with intrinsic dimension).**
+The two clusters coincide with head dimension (64 → ≈ 0.28, 128 → ≈ 0.20), suggesting d_head as the
+driver. But between-model, d_head also covaries with each head's intrinsic dimension (TwoNN), so the
+two cannot be separated from four model-level points. We therefore ran a *within-model* control that
+needs no retraining: for each head we correlate its intrinsic dimension d_int_h against its mean
+inter-group overlap with the other heads (Spearman ρ, permutation p, pooled over the three deepest
+layers). The result is mixed and cautionary: in Qwen the correlation is clear and significant
+(ρ = −0.53, p = 3×10⁻⁴ — heads with higher intrinsic dimension have lower overlap *within the same
+model*), while in GPT-2 the same sign appears but does not reach significance (ρ = −0.26, p = 0.13).
+The d_int↔O_h relation is therefore **not purely a between-architecture effect**: in at least one
+family it operates head-by-head. Consequently we do **not** attribute the cross-architecture
+magnitude to head dimension; d_head and intrinsic dimension are confounded, and disentangling them is
+a goal for the controlled ablation, not a settled result (details in Appendix F).
+
 We therefore promote the claim to its architecture-aware form:
 
 > *Across four autoregressive transformer families, attention heads consistently organize into
@@ -552,11 +576,15 @@ described as high-entropy integration noise (cf. §3.5) than as a compressible c
 (the atlas generalizes) and *replaces* it with a sharper one: the overlap magnitude clusters by
 attention design, so **which architectural component sets O_h?** Our four points already give a
 lead — GPT-2 (d_head 64) and Qwen (d_head 64) sit near 0.28 while Llama/Mistral (d_head 128) sit near
-0.20, even though Qwen already has GQA/RoPE/RMSNorm — implicating **head dimension** over the mere
-presence of GQA. A controlled ablation over {MHA↔GQA, number of KV heads, d_head, RoPE↔learned,
-RMSNorm↔LayerNorm} on matched-scale models would isolate the driver. Caveat (the NQP lesson): this
-would establish *architecture → O_h* (mechanistic, tractable), **not** *O_h → model quality*
-(interventional, requires retraining) — two distinct causal questions that must not be conflated.
+0.20, even though Qwen already has GQA/RoPE/RMSNorm — making **head dimension** the leading suspect
+over the mere presence of GQA. But a within-model control (§3.1b, Appendix F) shows d_head is
+confounded with each head's intrinsic dimension, which itself predicts overlap head-by-head in at
+least one family. The ablation must therefore vary d_head while tracking d_int as a mediator, not
+treat d_head as the isolated cause. A controlled ablation over {MHA↔GQA, number of KV heads, d_head,
+RoPE↔learned, RMSNorm↔LayerNorm} on matched-scale models would isolate the driver. Caveat (the NQP
+lesson): this would establish *architecture → O_h* (mechanistic, tractable), **not** *O_h → model
+quality* (interventional, requires retraining) — two distinct causal questions that must not be
+conflated.
 
 **Other directions.** (i) Cross-*paradigm* generalization beyond autoregressive decoders (encoder,
 encoder–decoder, state-space). (ii) Promoting "atlas" toward a formal claim by *measuring transition
@@ -644,6 +672,31 @@ cross-architecture gap (≈ 0.08): all three are STABLE (wobble ≪ gap).
 The per-cell CIs are ±0.002; seeds are effectively interchangeable; and Llama vs Mistral (identical
 attention geometry) agree to 0.002. The d_head clustering is thus stable to the choice of layer and
 seed.
+
+## Appendix F — Within-model control: d_head vs intrinsic dimension
+
+The cross-architecture clustering (§3.1b) coincides with d_head, but between four models d_head
+covaries with intrinsic dimension, d_model, and KV count; four points cannot separate them. The
+cheapest discriminator that needs no retraining looks *inside* a single model. For each query head h
+in a layer we measure (i) d_int_h, the TwoNN intrinsic dimension of that head's residual cloud, and
+(ii) Ō_h, the mean of head h's inter-group overlaps with every other head (intra-group, KV-sharing
+partners excluded, as in §3.1b). We correlate d_int_h against Ō_h across the heads of a model
+(Spearman ρ, two-sided permutation p over 20 000 label shuffles), pooled over the three deepest
+layers, at fixed d_local = 7.
+
+| model | d_head | pooled n | Spearman ρ(d_int_h, Ō_h) | perm. p | reading |
+|---|---|---|---|---|---|
+| GPT-2 124M | 64 | 36 | −0.26 | 0.13 | same sign, not significant |
+| Qwen2.5-0.5B | 64 | 42 | −0.53 | 0.0003 | significant negative |
+
+**Reading.** A negative within-model correlation means the d_int↔O_h link is *per-head*, not only
+between-architecture. Qwen shows it clearly; GPT-2 shows the same sign without significance (n = 36,
+limited power). This is enough to flag d_int as a genuine confounder for the d_head lead — but not to
+claim d_int is *the* driver, since the effect is not uniform across families and the within-model
+d_int range is itself layer-dependent (e.g. one Qwen layer has a collapsed d_int range and a null
+correlation, as expected when the predictor has little variance). The honest conclusion is that
+d_head and d_int are entangled and only a matched-scale ablation can separate them. Code:
+`src/atlas_intramodel.py`; data: `docs/intramodel_gpt2.json`, `docs/intramodel_qwen.json`.
 
 ## Appendix C — Reproducibility
 

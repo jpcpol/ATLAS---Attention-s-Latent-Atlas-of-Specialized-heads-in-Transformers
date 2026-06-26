@@ -118,7 +118,8 @@ NQP/
 | [src/atlas_robustness.py](src/atlas_robustness.py) | **Hardening of the central claim:** bootstrap CI of O_h + sensitivity to d_local / N / depth. |
 | [src/atlas_intercorpus.py](src/atlas_intercorpus.py) | Inter-corpus control (WikiText-103 vs C4): O_h is a property of the model, not the corpus. |
 | [src/residual_backends.py](src/residual_backends.py) | **Architecture-agnostic residual extraction** (GPT-2 / Llama / Mistral / Qwen2 backends; handles RMSNorm, RoPE, GQA). Lets the same O_h protocol run on any of the four families. |
-| [src/atlas_crossarch.py](src/atlas_crossarch.py) | **Cross-architecture O_h** with the GQA intra/inter-group pair split + per-model d_local + fixed-d_local control. The Phase 1/2 driver. |
+| [src/atlas_crossarch.py](src/atlas_crossarch.py) | **Cross-architecture O_h** with the GQA intra/inter-group pair split + per-model d_local + fixed-d_local control + depth×seed robustness. The Phase 1/2 driver. |
+| [src/atlas_intramodel.py](src/atlas_intramodel.py) | **Intra-model confounder control:** within one model, correlate each head's intrinsic dimension against its overlap (Spearman + permutation p). Discriminates d_head vs d_int as the cross-arch driver — without retraining. |
 | [src/autoencoder.py](src/autoencoder.py) | **EXP-Q06:** per-head nonlinear autoencoder (64→7→64) vs PCA rank-7. Clean negative: the manifold is not functionally compressible by this route. |
 | [src/figure_data.py](src/figure_data.py) | Collects the figure data → `docs/figure_data.json`. |
 | [src/make_figures.py](src/make_figures.py) | Renders the 9 figures → `docs/figures/` (incl. Fig 6, cross-architecture). |
@@ -152,7 +153,8 @@ depth.
 | Functional compression of the manifold (Q06) | ❌ Honest negative (AE ≈ PCA) |
 | Preprint | ✅ Complete draft (title promoted; cross-arch §3.1b + Fig 6 integrated) |
 | Bibliographic metadata confirmation | ⬜ Pending (reference manager; refs [17]–[23] flagged) |
-| Architectural ablation — *what component sets O_h?* | ⬜ Open (d_head is the lead; see Future Work) |
+| Intra-model confounder control (d_head vs d_int) | ✅ Done — d_head is **confounded** with intrinsic dimension (Qwen ρ=−0.53, p=3e-4; GPT-2 same sign, n.s.). Lead demoted to "leading suspect" |
+| Architectural ablation — *what component sets O_h?* | ⬜ Open (d_head is the lead suspect but confounded with d_int; ablation must track d_int as mediator; see Future Work) |
 
 ---
 
@@ -160,8 +162,11 @@ depth.
 
 1. **What architectural component sets O_h?** — the cross-architecture result turned the existence
    question into this sharper one. The lead from our four points is **head dimension** (d_head 64 →
-   ≈0.28, d_head 128 → ≈0.20, even though Qwen already has GQA/RoPE/RMSNorm). A matched-scale ablation
-   over {MHA↔GQA, #KV heads, d_head, RoPE↔learned, RMSNorm↔LayerNorm} would isolate the driver.
+   ≈0.28, d_head 128 → ≈0.20, even though Qwen already has GQA/RoPE/RMSNorm) — but an intra-model
+   control showed d_head is **confounded with intrinsic dimension**, which predicts overlap
+   head-by-head in at least one family (Qwen ρ=−0.53). So the matched-scale ablation over {MHA↔GQA,
+   #KV heads, d_head, RoPE↔learned, RMSNorm↔LayerNorm} must vary d_head while **tracking d_int as a
+   mediator**, not treat d_head as the isolated cause.
    *Caveat (the NQP lesson): this establishes architecture→O_h, not O_h→quality.*
 2. **Geometric routing across heads** — dynamic activation of a subset of heads (MoE-like, but by
    latent geometry rather than learned logits).

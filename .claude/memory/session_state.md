@@ -18,6 +18,15 @@ Extendido el atlas de GPT-2 a 4 familias autorregresivas → **Case B**:
   d_head 128 → ~0.20 (Llama/Mistral). CIs no se solapan.
 - Control d_local fijo (k=7): el gap **se ensancha** a ΔO_h ≈ 0.09 → geometría real,
   no artefacto de métrica. (Refuta el caveat anti-NQP sobre la métrica.)
+- Sweep O_h(k) k=4..10 (GPT-2/Qwen completos; Llama/Mistral 2 puntos): los dos modelos
+  d_head-64 trazan una **curva común** (cohesión ≤0.022); el cluster-128 está debajo en
+  todo k (Mistral@k9=0.226 < Qwen@k9=0.325). El gap es un offset vertical de la curva, no
+  artefacto de k=7. Datos: `docs/dlocal_sweep.json`.
+- **Control intra-modelo (d_head vs d_int)**: dentro de un modelo, ρ(d_int_h, Ō_h).
+  Qwen ρ=−0.53 p=3e-4 (sig.), GPT-2 ρ=−0.26 p=0.13 (mismo signo, n.s.). **d_head está
+  CONFUNDIDO con d_int** (el vínculo es per-head en Qwen). El lead d_head baja a "principal
+  sospechoso, confundido". El ablation debe trackear d_int como mediador.
+  Código `src/atlas_intramodel.py`; datos `docs/intramodel_{gpt2,qwen}.json`.
 - **Control de robustez (3 capas × 2 seeds, k=7)**: todos STABLE.
   Qwen depth/seed-spread 0.017/0.005 (mean 0.283), Mistral 0.006/0.002 (0.198),
   Llama 0.003/0.001 (0.196). Wobble máx (Qwen 0.017) ≈ 5× menor que el gap 0.08.
