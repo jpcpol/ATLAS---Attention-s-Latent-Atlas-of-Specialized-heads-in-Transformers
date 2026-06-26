@@ -223,6 +223,39 @@ valid first data point that still exercises RMSNorm+RoPE+GQA.
   - divergent/≈1 anywhere → **Case C** → report honestly; the non-alignment becomes a GPT-2-family
     property and the paper's scope statement stands as-is.
 
+- **✅ Phase 2 DONE (2026-06-26) — GATE G2 = CASE B.** Ran `src/atlas_crossarch.py` on a Colab T4
+  (fp16; results in `docs/phase2_results.json`). A GPT-2 fp16/GPU regression first confirmed
+  the precision/device do not move O_h (0.283 vs frozen 0.284), so the 7-8B numbers are trustworthy.
+  Llama-8B needed `device_map="auto"` with a `max_memory` cap (full fp16, **no quantization** — CPU
+  offload of overflow layers; the geometry is unaltered).
+
+  | model | family | inter-group O_h | 95% CI | TwoNN | d_local |
+  |---|---|---|---|---|---|
+  | GPT-2 | MHA | 0.283 | [0.276, 0.290] | 7.1 | 7 |
+  | Qwen2.5-0.5B | GQA 14/2 | 0.290 | [0.284, 0.297] | 7.1 | 7 |
+  | Llama-3.1-8B | GQA 32/8 | 0.248 | [0.247, 0.250] | 10.8 | 11 |
+  | Mistral-7B-v0.1 | GQA 32/8 | 0.226 | [0.224, 0.227] | 9.3 | 9 |
+
+  **Verdict — Case B (the pre-registered "more interesting" outcome):**
+  1. **Non-alignment is universal:** all four O_h ∈ [0.23, 0.29], all ≪ 1. The atlas of non-aligned
+     per-head manifolds survives MHA *and* GQA, LayerNorm *and* RMSNorm, learned positions *and*
+     RoPE. **Case C is firmly ruled out.**
+  2. **Magnitude is architecture-dependent, and interpretably so:** Llama (0.248) and Mistral (0.226)
+     — which share the *identical* attention geometry 32 Q / 8 KV / d_head 128 — fall **together and
+     below** GPT-2/Qwen (~0.28), with non-overlapping CIs. Mistral is **not** an outlier; the
+     Llama/Mistral attention shape produces more mutually-orthogonal heads. New question this opens:
+     *why does GQA-32/8 (more heads, wider d_head) yield more orthogonal heads?*
+  3. **Honest caveat:** TwoNN rises with the model (7→9→11), so d_local was re-derived per model
+     (7/9/11). The residual of the larger models lives on a slightly higher-dimensional manifold —
+     but still low (~11/128 ≈ 9% of ambient). The non-alignment conclusion is d_local-independent
+     (the per-model d_local sweeps all stay ≪ 1), exactly as in the GPT-2 paper.
+
+  **Claim earned (NOT "architecture-independent" — that would be Case A):** *the atlas of non-aligned
+  per-head residual manifolds is a property of autoregressive transformers (GPT-2, Qwen, Llama,
+  Mistral); the non-alignment O_h ≪ 1 is universal, while its exact magnitude depends on the
+  attention architecture.* Distinguishing the invariant (existence) from the variable (magnitude) is
+  scientifically stronger than a flat Case A.
+
 ### Phase 3 — Write-up integration *(only after G2)*
 - Add a cross-architecture subsection + one figure (O_h vs architecture with CIs, analogous to Fig 2).
 - **Title/abstract change only if Case A or B holds** (per `tarea.txt`: do not touch the title until

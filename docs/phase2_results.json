@@ -1,0 +1,57 @@
+{
+  "date": "2026-06-26",
+  "protocol": "deepest layer, N=1200, group_mode=query, d_local=round(TwoNN), bootstrap 2000, inter-group O_h",
+  "gpt2_cpu_reference": {
+    "inter_O_h": 0.284,
+    "inter_CI": [
+      0.276,
+      0.292
+    ],
+    "TwoNN": 7.1,
+    "d_local": 7,
+    "family": "MHA"
+  },
+  "gpt2_fp16_gate": {
+    "inter_O_h": 0.283,
+    "inter_CI": [
+      0.276,
+      0.29
+    ],
+    "TwoNN": 7.1,
+    "d_local": 7,
+    "family": "MHA"
+  },
+  "qwen2_5_0_5b": {
+    "inter_O_h": 0.29,
+    "inter_CI": [
+      0.284,
+      0.297
+    ],
+    "TwoNN": 7.1,
+    "d_local": 7,
+    "family": "GQA 14/2",
+    "note": "CPU, phase 1"
+  },
+  "mistral_7b_v0_1": {
+    "inter_O_h": 0.226,
+    "inter_CI": [
+      0.224,
+      0.227
+    ],
+    "TwoNN": 9.3,
+    "d_local": 9,
+    "family": "GQA 32/8"
+  },
+  "llama_3_1_8b": {
+    "inter_O_h": 0.248,
+    "inter_CI": [
+      0.247,
+      0.25
+    ],
+    "TwoNN": 10.8,
+    "d_local": 11,
+    "family": "GQA 32/8",
+    "note": "fp16 + CPU offload"
+  },
+  "verdict": "Case B \u2014 non-alignment universal (all O_h << 1, range 0.23-0.29); magnitude architecture-dependent (Llama/Mistral GQA-32/8 more orthogonal than GPT-2/Qwen)"
+}
