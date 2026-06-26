@@ -53,9 +53,16 @@ is **nonlinearly low-dimensional and head-specific**.
 Our central finding is geometric and concerns the relationship *between heads*. Each head's
 residual occupies its own low-dimensional nonlinear manifold, and these manifolds are embedded in
 **mutually non-aligned subspaces** — they are not coordinatizable by a single shared linear system.
-We call this organization an *atlas* (a collection of head-specific charts). The strongest,
-cleanest result is not the dimensionality of the charts but their **non-alignment**: the inter-head
-subspace overlap is ≈ 0.283 and is invariant to a 6× change in model scale.
+We call this organization an *atlas* (a collection of head-specific charts; see Figure 5 for a
+schematic). The strongest, cleanest result is not the dimensionality of the charts but their
+**non-alignment**: the inter-head subspace overlap is ≈ 0.28 and is invariant to a 6× change in
+model scale.
+
+![Figure 5: atlas schematic](figures/fig5_atlas_schematic.png)
+
+**Figure 5.** Conceptual illustration of the head-specific manifold atlas: each head's residual is a
+low-dimensional chart (~7D) with its own coordinate frame, and the frames are mutually non-aligned
+(O_h ≈ 0.28). *Pedagogical illustration; not empirical evidence.*
 
 **Contributions.**
 1. A decomposition and measurement protocol for the attention residual ε, with synthetic
@@ -98,7 +105,7 @@ plausible).
 
 ### 2.2 Intrinsic dimension (TwoNN)
 
-We estimate intrinsic dimension with the TwoNN estimator (Facco et al., 2017): for each point,
+We estimate intrinsic dimension with the TwoNN estimator (Facco et al. [1]): for each point,
 μ = r₂/r₁ (ratio of distances to its two nearest neighbors), and d = (N−1)/Σ_i log μ_i. TwoNN
 recovers nonlinear dimension where PCA cannot. **Validation:** on a 2D swiss-roll embedded in ℝ³,
 TwoNN returns ≈ 2.7 while PCA reports 3 — it sees the manifold, not the ambient rank.
@@ -153,11 +160,12 @@ regime to a low-T "crystallized" regime (T_eff → 1, purity → 1).
 
 ### 2.6 Models and controls
 
-We use gpt2 (124M, 12 layers), gpt2-medium (355M, 24 layers), and gpt2-large (774M, 36 layers).
-**Critical control:** for any cross-scale comparison of intrinsic dimension or overlap we fix the
-number of sampled points N, the number of heads, and the relative layer depth across models — an
-early uncontrolled run gave a spuriously identical dimension and taught us to control N/heads/layers
-before comparing intrinsic geometry across scales.
+We use the GPT-2 family [14]: gpt2 (124M, 12 layers), gpt2-medium (355M, 24 layers), and gpt2-large
+(774M, 36 layers). Residuals are collected on WikiText-103 [15], with C4 [16] used for the
+inter-corpus control. **Critical control:** for any cross-scale comparison of intrinsic dimension or
+overlap we fix the number of sampled points N, the number of heads, and the relative layer depth
+across models — an early uncontrolled run gave a spuriously identical dimension and taught us to
+control N/heads/layers before comparing intrinsic geometry across scales.
 
 ---
 
@@ -166,6 +174,13 @@ before comparing intrinsic geometry across scales.
 We present results in **decreasing order of empirical strength**, which is *not* the order in which
 the experiments were run. The strongest result is the inter-head non-alignment and its
 scale-invariance; the dimensionality is supportive; the decreasing-dimension trend is exploratory.
+Figure 4 summarizes the narrative: we rule out the obvious linear stories, then characterize the
+nonlinear structure that remains.
+
+![Figure 4: conceptual pipeline](figures/fig4_pipeline.png)
+
+**Figure 4.** Narrative pipeline. Red = refuted hypotheses (Top-k selection, low-rank); green =
+positive findings (intrinsic manifold, atlas); orange = the honest functional negative (per-head AE).
 
 ### 3.1 (Very strong) Heads are non-aligned, and the non-alignment is scale-invariant
 
@@ -182,6 +197,19 @@ Repeating the measurement across the GPT-2 family under the controlled protocol 
 
 > **O_h ≈ 0.28 across a 6× change in parameters; the three 95% CIs overlap, so the cross-scale
 > variation (≈ 0.007) is within sampling error.**
+
+![Figure 1: inter-head overlap matrices](figures/fig1_overlap_matrix.png)
+
+**Figure 1.** Inter-head residual subspace overlap (H×H, d_local = 7) for the deepest layer of each
+model. The diagonal is 1 by construction; every off-diagonal entry is ≈ 0.28. The pattern is
+visually identical across a 6× change in scale: heads are geometrically decoupled modules, not
+rotations of a shared manifold. *This is the paper's central figure.*
+
+![Figure 2: overlap vs scale](figures/fig2_overlap_vs_scale.png)
+
+**Figure 2.** O_h versus model size with 95% bootstrap confidence intervals. The intervals overlap
+and sit far below the shared-subspace expectation (O_h = 1): non-alignment is compatible with
+scale-invariance within the GPT-2 family.
 
 This is the rigid result. Two null hypotheses are decisively rejected: heads are **not** a single
 shared manifold (which would give O_h ≈ 1), and the structure is **not** explained by per-head
@@ -204,21 +232,27 @@ is d_local itself: O_h rises monotonically from ≈ 0.21 (k=4) to ≈ 0.34 (k=10
 directions enter the frame. This is expected and does not affect the conclusion — O_h stays well
 below 1 for every k — but it means the *absolute* headline value 0.28 is reported conditional on
 d_local = 7 (chosen to match the intrinsic dimension, §3.2), whereas the *non-alignment itself* is
-choice-independent.
+choice-independent (Figure S1).
 
 **Inter-corpus control.** Non-alignment is a property of the model, not of the measurement corpus.
 Recomputing O_h on a second corpus (C4) gives O_h = 0.277, 95% CI [0.269, 0.285], versus 0.284
 [0.276, 0.292] on WikiText-103 — the two CIs overlap (cross-corpus spread 0.007). This addresses the
-most direct alternative explanation ("is this a corpus artifact?"): it is not.
+most direct alternative explanation ("is this a corpus artifact?"): it is not (Figure S2).
 
 ### 3.2 (Strong) Each head is a low-dimensional nonlinear manifold
 
 Per head, the residual's intrinsic dimension (TwoNN ≈ 6–7) is far below its linear rank
-(PCA ≈ 28–32 for 90% variance). The cloud is therefore a **nonlinear** manifold of low effective
-dimension embedded in a much higher linear span — "not compressible by PCA" is not the same as "not
-compressible". Auxiliary geometric checks (connectivity, local-dimension homogeneity, short-range
-interpolation) are consistent with a single connected, locally regular manifold per head rather than
-a union of disjoint clusters.
+(PCA ≈ 28–32 for 90% variance, Figure 3). The cloud is therefore a **nonlinear** manifold of low
+effective dimension embedded in a much higher linear span — "not compressible by PCA" is not the
+same as "not compressible". Auxiliary geometric checks (connectivity, local-dimension homogeneity,
+short-range interpolation) are consistent with a single connected, locally regular manifold per head
+rather than a union of disjoint clusters.
+
+![Figure 3: PCA vs intrinsic dimension](figures/fig3_pca_vs_intrinsic.png)
+
+**Figure 3.** Linear rank (PCA, 90% variance) versus intrinsic dimension (TwoNN) of the per-head
+residual, by model. The intrinsic dimension (~7) is far below the linear rank (~30) at every scale —
+the structure linear methods miss, and the reason a nonlinear estimator was required.
 
 ### 3.3 (Moderate) The per-head intrinsic dimension is approximately scale-invariant
 
@@ -270,7 +304,8 @@ autoencoder** (64 → 7 → 64, trained to reconstruct ε) repair the perplexity
 destroys, and beat the linear PCA projection of the same rank? It cannot. Replacing ε with the AE
 reconstruction on the three deepest layers recovers **55.8%** of the Top-1 loss — essentially
 identical to the **55.9%** recovered by a linear rank-7 PCA projection (held-out reconstruction
-FVU ≈ 0.38). The nonlinear bottleneck buys nothing over the linear one at equal dimension.
+FVU ≈ 0.38). The nonlinear bottleneck buys nothing over the linear one at equal dimension
+(Figure S3).
 
 We read this carefully. The intrinsic dimension ≈ 7 (TwoNN) is a *local* estimate of manifold
 curvature; it does **not** imply a single global 7-dimensional parametrization that an autoencoder
@@ -314,26 +349,33 @@ attention residual** and characterizes its invariances.
 
 **Representation geometry.** A body of work measures the *intrinsic dimension* of deep
 representations and describes them as low-dimensional *neural manifolds* embedded in
-high-dimensional activation space (Ansuini et al.; Facco et al.; and the broader latent-geometry
-literature). We adopt the same estimator (TwoNN) but change the object of study: instead of layer
+high-dimensional activation space. The TwoNN estimator we use is from Facco et al. [1]; Ansuini et
+al. [2] showed that the intrinsic dimension of DNN representations follows a characteristic
+hunchbacked profile far below the linear PCA dimension, and Pope et al. [3] measured the low
+intrinsic dimension of natural-image manifolds. Our principal-angle / subspace-overlap measurement
+follows the classic linear-algebra treatment of principal angles between subspaces (Björck &
+Golub [4]). We adopt the same estimators but change the object of study: instead of layer
 activations we analyze the *attention residual* ε, and instead of a single global manifold we
 measure the *relationship between per-head manifolds* (inter-head subspace overlap) — the axis that
 yields our main result.
 
-**Mechanistic interpretability.** Work on attention-head specialization, circuits, and superposition
+**Mechanistic interpretability.** Work on attention-head specialization (Voita et al. [5]; Clark
+et al. [6]), circuits (Olsson et al. [7], induction heads), and superposition (Elhage et al. [8])
 asks *what* heads compute. We are complementary and orthogonal: we do not identify features or
 circuits, but show that, geometrically, heads carry residual information in *mutually non-aligned
-subspaces*. Our decoupled-per-head charts give a representation-level correlate of specialization
-without committing to any functional labeling.
+subspaces*. Our decoupled-per-head charts give a representation-level correlate of the specialization
+those works describe, without committing to any functional labeling.
 
-**Thermodynamic interpretations of attention.** softmax(QKᵀ/√d) is exactly a Boltzmann distribution,
-which several works exploit (entropy of attention, energy-based and free-energy views). We use this
-exactly, not metaphorically, and only as a *measurement device* for macroscopic observables (phases,
-T_eff, L_c) and as the source of the S_vn uncertainty proxy. The thermodynamic layer is a tool here,
-not the contribution.
+**Thermodynamic / energy-based interpretations of attention.** softmax(QKᵀ/√d) is exactly a
+Boltzmann distribution; this connection underlies the Hopfield-network reading of attention (Ramsauer
+et al. [9]) and entropy/sharpness analyses of attention distributions (e.g. Vig & Belinkov [10] on
+attention entropy across layers). We use the Boltzmann identity exactly, not metaphorically, and only
+as a *measurement device* for macroscopic observables (phases, T_eff, L_c) and as the source of the
+S_vn uncertainty proxy. The thermodynamic layer is a tool here, not the contribution.
 
-**Low-dimensional structure and compression.** Low-rank transformers, pruning, and sparse-attention
-methods seek to remove redundancy. We relate by *negation*: we explicitly refute the sparse-selection
+**Low-dimensional structure and compression.** Low-rank transformers (Linformer, Wang et al. [11]),
+pruning of attention heads (Michel et al. [12]), and sparse/efficient attention (Child et al. [13])
+seek to remove redundancy. We relate by *negation*: we explicitly refute the sparse-selection
 (Top-k) and global low-rank stories for the residual (§3.5), which distinguishes our object from
 compressible-attention claims and motivates the nonlinear, per-head view.
 
@@ -414,5 +456,80 @@ Code: `src/residual.py` (decomposition), `src/intrinsic.py` (TwoNN), `src/manifo
 `src/atlas_intercorpus.py` (WikiText vs C4 control), `src/autoencoder.py` (per-head AE, Q06),
 `src/scaling.py`
 (dim + L_c across scale), `src/thermo.py` (Boltzmann observables, S_vn), `src/crystallize.py`
-(Top-k baseline). Theory map: `theory/quantum_transformer_map.md`. Data: WikiText-103 validation.
-All cross-scale comparisons use fixed N / heads / relative depth.
+(Top-k baseline). Theory map: `theory/quantum_transformer_map.md`. Data: WikiText-103 validation
+(and C4 for the inter-corpus control). All cross-scale comparisons use fixed N / heads / relative
+depth. Figures are regenerated from `src/figure_data.py` (→ `docs/figure_data.json`) and
+`src/make_figures.py` (→ `docs/figures/`).
+
+## Appendix D — Supplementary figures
+
+![Figure S1: O_h vs d_local](figures/figS1_dlocal_sweep.png)
+
+**Figure S1.** O_h as a function of d_local for each model. The value rises monotonically with
+d_local (adding lower-variance directions), but stays far below 1 for every k ∈ [4, 10] — the
+non-alignment conclusion is independent of the frame-size hyperparameter; only the reported number
+is conditional on d_local = 7.
+
+![Figure S2: inter-corpus](figures/figS2_intercorpus.png)
+
+**Figure S2.** O_h on GPT-2 small measured on WikiText-103 vs C4 (deepest layer, same protocol),
+with 95% bootstrap CIs. The intervals overlap: non-alignment is a property of the model, not of the
+measurement corpus.
+
+![Figure S3: Q06 negative](figures/figS3_q06_negative.png)
+
+**Figure S3.** Fraction of the Top-1 perplexity damage recovered by a linear rank-7 PCA projection
+of ε versus a per-head nonlinear autoencoder (64→7→64), on the three deepest layers. They are
+indistinguishable (55.9% vs 55.8%): the nonlinear manifold does not translate into a functional
+compression advantage at the intrinsic dimension.
+
+---
+
+## References
+
+[1] E. Facco, M. d'Errico, A. Rodriguez, A. Laio. "Estimating the intrinsic dimension of datasets by
+a minimal neighborhood information." *Scientific Reports* 7:12140, 2017.
+
+[2] A. Ansuini, A. Laio, J. H. Macke, D. Zoccolan. "Intrinsic dimension of data representations in
+deep neural networks." *NeurIPS*, 2019.
+
+[3] P. Pope, C. Zhu, A. Abdelkader, M. Goldblum, T. Goldstein. "The intrinsic dimension of images
+and its impact on learning." *ICLR*, 2021.
+
+[4] Å. Björck, G. H. Golub. "Numerical methods for computing angles between linear subspaces."
+*Mathematics of Computation* 27(123):579–594, 1973.
+
+[5] E. Voita, D. Talbot, F. Moiseev, R. Sennrich, I. Titov. "Analyzing multi-head self-attention:
+specialized heads do the heavy lifting, the rest can be pruned." *ACL*, 2019.
+
+[6] K. Clark, U. Khandelwal, O. Levy, C. D. Manning. "What does BERT look at? An analysis of BERT's
+attention." *BlackboxNLP @ ACL*, 2019.
+
+[7] C. Olsson, N. Elhage, N. Nanda, N. Joseph, et al. "In-context learning and induction heads."
+*Transformer Circuits Thread*, Anthropic, 2022.
+
+[8] N. Elhage, T. Hume, C. Olsson, N. Schiefer, et al. "Toy models of superposition."
+*Transformer Circuits Thread*, Anthropic, 2022.
+
+[9] H. Ramsauer, B. Schäfl, J. Lehner, P. Seidl, et al. "Hopfield networks is all you need."
+*ICLR*, 2021.
+
+[10] J. Vig, Y. Belinkov. "Analyzing the structure of attention in a transformer language model."
+*BlackboxNLP @ ACL*, 2019.
+
+[11] S. Wang, B. Z. Li, M. Khabsa, H. Fang, H. Ma. "Linformer: self-attention with linear
+complexity." *arXiv:2006.04768*, 2020.
+
+[12] P. Michel, O. Levy, G. Neubig. "Are sixteen heads really better than one?" *NeurIPS*, 2019.
+
+[13] R. Child, S. Gray, A. Radford, I. Sutskever. "Generating long sequences with sparse
+transformers." *arXiv:1904.10509*, 2019.
+
+[14] A. Radford, J. Wu, R. Child, D. Luan, D. Amodei, I. Sutskever. "Language models are
+unsupervised multitask learners." (GPT-2 technical report), OpenAI, 2019.
+
+[15] S. Merity, C. Xiong, J. Bradbury, R. Socher. "Pointer sentinel mixture models." (WikiText)
+*ICLR*, 2017.
+
+[16] C. Raffel, N. Shazeer, A. Roberts, et al. "Exploring the limits of transfer learning with a
+unified text-to-text transformer." (T5 / C4 corpus) *JMLR* 21(140), 2020.

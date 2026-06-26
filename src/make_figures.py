@@ -99,8 +99,8 @@ def fig3_pca_vs_intrinsic(d):
            color="#b0b8c8")
     ax.bar(x + w/2, int, w, yerr=int_e, capsize=4, label="intrinsic dim (TwoNN)",
            color="#2c3e80")
-    for xi, v in zip(x - w/2, lin): ax.text(xi, v + 0.6, f"{v:.0f}", ha="center", fontsize=8)
-    for xi, v in zip(x + w/2, int): ax.text(xi, v + 0.6, f"{v:.1f}", ha="center", fontsize=8)
+    for xi, v, e in zip(x - w/2, lin, lin_e): ax.text(xi, v + e + 1.2, f"{v:.0f}", ha="center", fontsize=8)
+    for xi, v, e in zip(x + w/2, int, int_e): ax.text(xi, v + e + 1.2, f"{v:.1f}", ha="center", fontsize=8)
     ax.set_xticks(x); ax.set_xticklabels([NICE[m].split(" (")[0] for m in MODELS], fontsize=8)
     ax.set_ylabel("dimension of residual ε")
     ax.set_title("The residual is nonlinear: intrinsic dim (~7) ≪ linear rank (~30)\n"
@@ -143,13 +143,13 @@ def fig5_atlas_schematic(_):
     ax.add_patch(plt.Rectangle((0.4, 0.4), 9.2, 6.2, fill=False, ec="gray", ls="--"))
     ax.text(9.4, 0.65, r"$\mathbb{R}^{64}$ (ambient)", ha="right", fontsize=10, color="gray")
     # three non-aligned local charts (ellipses at different orientations)
-    charts = [((2.5, 4.6), 35), ((5.2, 2.3), -20), ((7.6, 4.9), 80)]
+    charts = [((2.5, 4.6), 35), ((5.2, 2.3), -20), ((7.8, 5.0), 80)]
     for i, ((cx, cy), ang) in enumerate(charts, 1):
         ax.add_patch(Ellipse((cx, cy), 2.6, 1.0, angle=ang, fc="#2c3e80",
                      ec="black", alpha=0.55))
         ax.text(cx, cy, f"$M_{i}$", ha="center", va="center", color="white",
                 fontsize=13, weight="bold")
-        ax.text(cx, cy - 0.95, f"head {i}\n~7D", ha="center", va="top", fontsize=7.5)
+        ax.text(cx, cy - 1.05, f"head {i}\n~7D", ha="center", va="top", fontsize=7.5)
     ax.text(5.0, 6.25, "Each head's residual = a low-dim chart with its OWN coordinates",
             ha="center", fontsize=9.5)
     ax.text(5.0, 0.05, "Charts are mutually non-aligned ($O_h$ ≈ 0.28), not a shared manifold",
