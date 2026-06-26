@@ -1,16 +1,59 @@
+# --- Python ---
 __pycache__/
 *.py[cod]
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments ---
 .env
 .venv/
 venv/
+env/
+
+# --- Build / packaging ---
 dist/
 build/
+
+# --- Model weights & checkpoints (never commit; re-downloaded from HF) ---
 *.gguf
 *.safetensors
 *.bin
 *.pt
 *.pth
+*.onnx
 checkpoints/
+models/
+
+# --- ML experiment tracking & caches ---
 wandb/
+runs/
+lightning_logs/
+.cache/
+*.hf_cache/
+huggingface/
+
+# --- Notebooks ---
 .ipynb_checkpoints/
+
+# --- Large intermediate data (figures/figure_data.json ARE tracked: they are the paper's artifacts) ---
+*.npy
+*.npz
+*.h5
+*.parquet
+data/
+scratch/
+tmp/
+*.log
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -31,6 +31,53 @@ descriptively — a collection of local charts — not as a claim of a formal fi
 
 ---
 
+## 0. From Quantization to Geometry: what these results mean for the project's original objective
+
+This work did not begin as a study of attention geometry. The project (NQP — *Natural Quantization
+via State Preparation*) began with a single applied hypothesis: that one could quantize an LLM with
+less error by first rotating each layer's weights into the eigenbasis of the model's Fisher
+information matrix — a "preparation operator" P̂ — by analogy with measuring a quantum system in the
+eigenbasis of its Hamiltonian, where discreteness emerges from the system's own geometry rather than
+being imposed externally. The target was a *deployment* method: better post-training quantization.
+
+**That hypothesis was refuted.** Empirically, the Fisher eigenbasis of activations is approximately
+rank-2 and does not beat the standard quantization stack (GPTQ + AWQ + QuIP); the
+"measure-in-the-Hamiltonian-basis" analogy turned out to be metaphorical, not operational. A
+follow-up reformulation as a weight/activation *uncertainty principle* was only partially supported:
+the two preparation bases genuinely fail to commute (principal angle ≈ 49°), but that
+non-commutativity carries no operational consequence for quantization error. The original applied
+goal — a better quantizer — did not survive contact with the data.
+
+**What survived is a different and, we argue, more durable result.** The discipline of trying to
+refute the quantization idea forced us to look directly at where information actually lives inside
+attention — the residual ε of each head after its dominant value vector is removed. That is where
+the structure reported in this paper emerged: a **scale-invariant, inter-corpus-stable atlas of
+head-specific, mutually non-aligned manifolds** (O_h ≈ 0.28). Crucially, this is a *representation-
+level* object, not a deployment trick. We even tested whether it can be turned back into the
+originally-sought compression method — a per-head nonlinear autoencoder at the manifold's intrinsic
+dimension (§3.7) — and found a clean negative: it matches but does not beat linear PCA. The geometry
+is real but, by this route, not functionally exploitable. We report that honestly rather than
+re-promising the application the project started with.
+
+In other words, the project's arc is: *the original idea (quantization via a natural basis) did not
+work, but the process of refuting it revealed a new, reproducible geometric structure in transformer
+attention.* The quantum analogy that motivated NQP can now be sorted cleanly into three tiers —
+decorative (Fisher-basis quantization, refuted), real-but-inert (the non-commuting weight/activation
+bases), and literally exact (softmax = Boltzmann, which we use as a measurement device in §3.6). The
+contribution of this paper belongs to none of the original applied promises and to the third,
+exact tier of the analogy plus a geometric finding that stands on its own evidence.
+
+**Relation to the long-term program.** We do *not* claim the atlas is yet useful. Whether this
+geometry is *causal* (atlas → better model) or merely *descriptive* (training → atlas as a
+byproduct) is open and, in our view, the central question for this line. The honest current
+statement is: the head-wise atlas appears to be an emergent geometric constraint of transformers;
+although no direct functional advantage has yet been demonstrated, the structure opens concrete
+future directions (geometric routing of heads, diagnostic metrics for head collapse/redundancy,
+fine-tuning stability of the atlas) — pursued only with the explicit caution learned from NQP itself:
+**the existence of a geometric structure does not imply it is exploitable.**
+
+---
+
 ## 1. Introduction
 
 A self-attention head produces an output that is a convex combination of value vectors,
@@ -487,49 +534,64 @@ compression advantage at the intrinsic dimension.
 
 ## References
 
+<!-- Metadata status: DOIs / arXiv IDs / venues below were assembled from the canonical
+     publications and should be cross-checked in a reference manager (Zotero/JabRef) before
+     camera-ready. Page/volume fields are filled where the work is journal-published; conference
+     and Transformer-Circuits entries carry their proceedings / URL instead. Items flagged
+     [verify] still need page or volume confirmation. -->
+
 [1] E. Facco, M. d'Errico, A. Rodriguez, A. Laio. "Estimating the intrinsic dimension of datasets by
 a minimal neighborhood information." *Scientific Reports* 7:12140, 2017.
+DOI: 10.1038/s41598-017-11873-y.
 
 [2] A. Ansuini, A. Laio, J. H. Macke, D. Zoccolan. "Intrinsic dimension of data representations in
-deep neural networks." *NeurIPS*, 2019.
+deep neural networks." *Advances in Neural Information Processing Systems (NeurIPS)* 32, pp.
+6111–6122, 2019. arXiv:1905.12784.
 
 [3] P. Pope, C. Zhu, A. Abdelkader, M. Goldblum, T. Goldstein. "The intrinsic dimension of images
-and its impact on learning." *ICLR*, 2021.
+and its impact on learning." *International Conference on Learning Representations (ICLR)*, 2021.
+arXiv:2104.08894.
 
 [4] Å. Björck, G. H. Golub. "Numerical methods for computing angles between linear subspaces."
-*Mathematics of Computation* 27(123):579–594, 1973.
+*Mathematics of Computation* 27(123):579–594, 1973. DOI: 10.1090/S0025-5718-1973-0348991-3.
 
 [5] E. Voita, D. Talbot, F. Moiseev, R. Sennrich, I. Titov. "Analyzing multi-head self-attention:
-specialized heads do the heavy lifting, the rest can be pruned." *ACL*, 2019.
+specialized heads do the heavy lifting, the rest can be pruned." *Proc. 57th Annual Meeting of the
+ACL*, pp. 5797–5808, 2019. DOI: 10.18653/v1/P19-1580. arXiv:1905.09418.
 
 [6] K. Clark, U. Khandelwal, O. Levy, C. D. Manning. "What does BERT look at? An analysis of BERT's
-attention." *BlackboxNLP @ ACL*, 2019.
+attention." *Proc. 2019 ACL Workshop BlackboxNLP*, pp. 276–286, 2019. DOI: 10.18653/v1/W19-4828.
+arXiv:1906.04341.
 
 [7] C. Olsson, N. Elhage, N. Nanda, N. Joseph, et al. "In-context learning and induction heads."
-*Transformer Circuits Thread*, Anthropic, 2022.
+*Transformer Circuits Thread*, Anthropic, 2022. https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/.
 
 [8] N. Elhage, T. Hume, C. Olsson, N. Schiefer, et al. "Toy models of superposition."
-*Transformer Circuits Thread*, Anthropic, 2022.
+*Transformer Circuits Thread*, Anthropic, 2022. arXiv:2209.10652.
+https://transformer-circuits.pub/2022/toy_model/.
 
 [9] H. Ramsauer, B. Schäfl, J. Lehner, P. Seidl, et al. "Hopfield networks is all you need."
-*ICLR*, 2021.
+*International Conference on Learning Representations (ICLR)*, 2021. arXiv:2008.02217.
 
 [10] J. Vig, Y. Belinkov. "Analyzing the structure of attention in a transformer language model."
-*BlackboxNLP @ ACL*, 2019.
+*Proc. 2019 ACL Workshop BlackboxNLP*, pp. 63–76, 2019. DOI: 10.18653/v1/W19-4808. arXiv:1906.04284.
 
 [11] S. Wang, B. Z. Li, M. Khabsa, H. Fang, H. Ma. "Linformer: self-attention with linear
-complexity." *arXiv:2006.04768*, 2020.
+complexity." arXiv:2006.04768, 2020.
 
-[12] P. Michel, O. Levy, G. Neubig. "Are sixteen heads really better than one?" *NeurIPS*, 2019.
+[12] P. Michel, O. Levy, G. Neubig. "Are sixteen heads really better than one?" *Advances in Neural
+Information Processing Systems (NeurIPS)* 32, pp. 14014–14024, 2019. arXiv:1905.10650.
 
 [13] R. Child, S. Gray, A. Radford, I. Sutskever. "Generating long sequences with sparse
-transformers." *arXiv:1904.10509*, 2019.
+transformers." arXiv:1904.10509, 2019.
 
 [14] A. Radford, J. Wu, R. Child, D. Luan, D. Amodei, I. Sutskever. "Language models are
-unsupervised multitask learners." (GPT-2 technical report), OpenAI, 2019.
+unsupervised multitask learners." OpenAI technical report, 2019.
+https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf.
 
-[15] S. Merity, C. Xiong, J. Bradbury, R. Socher. "Pointer sentinel mixture models." (WikiText)
-*ICLR*, 2017.
+[15] S. Merity, C. Xiong, J. Bradbury, R. Socher. "Pointer sentinel mixture models." *International
+Conference on Learning Representations (ICLR)*, 2017. arXiv:1609.07843.
 
-[16] C. Raffel, N. Shazeer, A. Roberts, et al. "Exploring the limits of transfer learning with a
-unified text-to-text transformer." (T5 / C4 corpus) *JMLR* 21(140), 2020.
+[16] C. Raffel, N. Shazeer, A. Roberts, K. Lee, S. Narang, M. Matena, Y. Zhou, W. Li, P. J. Liu.
+"Exploring the limits of transfer learning with a unified text-to-text transformer." *Journal of
+Machine Learning Research (JMLR)* 21(140):1–67, 2020. arXiv:1910.10683.
