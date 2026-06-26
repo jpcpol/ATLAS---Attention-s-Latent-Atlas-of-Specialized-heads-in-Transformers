@@ -54,6 +54,24 @@ def _subsample(E: Tensor, max_points: int) -> Tensor:
     return E
 
 
+def _rotary_helpers(model):
+    """Fetch (apply_rotary_pos_emb, repeat_kv) from the model's OWN modeling module.
+
+    Llama / Mistral / Qwen2 share an identical attention layout but each defines these
+    helpers in its own `modeling_<family>` module. We resolve them from the attention
+    class's module so RoPE variant and any family-specific detail stay correct; we fall
+    back to the Llama implementations (the canonical ones) if a family omits them.
+    """
+    import importlib
+    from transformers.models.llama.modeling_llama import (
+        apply_rotary_pos_emb as llama_rope, repeat_kv as llama_repeat)
+    attn_cls = type(model.model.layers[0].self_attn)
+    mod = importlib.import_module(attn_cls.__module__)
+    rope = getattr(mod, "apply_rotary_pos_emb", llama_rope)
+    repeat = getattr(mod, "repeat_kv", llama_repeat)
+    return rope, repeat
+
+
 def _residual_from_weights(p: Tensor, v: Tensor) -> Tensor:
     """
     Given attention weights p [H, T, T] and per-head values v [H, T, dh] (already
@@ -120,13 +138,17 @@ class GPT2Backend(ResidualBackend):
 
 
 # ---------------------------------------------------------------------------
-# Llama / Mistral backend — separate q/k/v, RMSNorm, RoPE, GQA
+# Llama-style backend — separate q/k/v, RMSNorm, RoPE, GQA
+# (Llama, Mistral, Qwen2 — identical attention layout; RoPE helpers resolved
+#  per-family via _rotary_helpers)
 # ---------------------------------------------------------------------------
 
 class LlamaBackend(ResidualBackend):
     """
     Wraps each target `self_attn.forward` to capture ε, then delegates to the
-    original forward so the model's own output is untouched.
+    original forward so the model's own output is untouched. Handles any
+    Llama-style attention (Llama / Mistral / Qwen2): the layout is identical and
+    family-specific RoPE/repeat_kv are resolved from the model's own module.
 
     Mirrors transformers' `eager_attention_forward` exactly:
         q,k,v via q_proj/k_proj/v_proj  ->  RoPE on q,k (cos,sin passed in)
@@ -138,7 +160,7 @@ class LlamaBackend(ResidualBackend):
 
     def collect(self, model, ids, seq_len, device, layers, n_blocks=4,
                 max_points=3000, group_mode="query") -> dict:
-        from transformers.models.llama.modeling_llama import apply_rotary_pos_emb, repeat_kv
+        apply_rotary_pos_emb, repeat_kv = _rotary_helpers(model)
 
         assert group_mode in ("query", "kv")
         bufs: dict = {}

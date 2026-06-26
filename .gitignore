@@ -60,3 +60,9 @@ desktop.ini
 
 # --- Project-local context (internal, not part of the public record) ---
 CLAUDE.md
+
+# --- Secrets / credentials (NEVER commit) ---
+huggingface
+*.token
+.hf_token
+hf_token*

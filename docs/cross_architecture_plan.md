@@ -168,9 +168,21 @@ valid first data point that still exercises RMSNorm+RoPE+GQA.
   `self_attn`, reads `q_proj/k_proj/v_proj`, applies **RoPE** and the causal mask, does **`repeat_kv`**
   to expand 8→32, and computes ε per Q-head (and a KV-head aggregation).
 - **Validation gate P0:** on GPT-2 the refactor must reproduce the frozen O_h = 0.284 [0.276, 0.292]
-  *bit-for-bit* (regression test). On a tiny Llama (1B) it must run end-to-end and return sane
+  *bit-for-bit* (regression test). On a tiny Llama-style model it must run end-to-end and return sane
   TwoNN dims (single-digit per head, like GPT-2). *No refactor ships until GPT-2 numbers are
   unchanged.*
+
+- **✅ Phase 0 DONE (2026-06-26).** Implemented `src/residual_backends.py` (`GPT2Backend` +
+  `LlamaBackend`, dispatch via `get_backend`; RoPE/repeat_kv resolved per-family so it covers
+  Llama / Mistral / Qwen2). `intrinsic.collect_residuals` is now a thin wrapper; all 8 consumers
+  untouched. Gate `tests/test_phase0_regression.py`:
+  - **P0-A (GPT-2 regression): PASS, exact** — O_h = 0.284, 95% CI [0.276, 0.292], bit-for-bit.
+  - **P0-B (GQA smoke):** ran on **Qwen2.5-0.5B** (Llama-3.2-1B access still pending Meta approval).
+    Qwen geometry n_q=14, n_kv=2, n_rep=7, d_head=64. Backend handled it correctly in both modes:
+    `group_mode=query` → 14 heads, mean **TwoNN ≈ 6.3**; `group_mode=kv` → 2 groups, mean ≈ 5.8.
+    First cross-architecture signal that the **low intrinsic dimension of the residual (~6–7D)
+    survives RMSNorm + RoPE + GQA** — not a GPT-2 artifact. (O_h proper is measured under the full
+    protocol in Phase 1/2; this gate only validates the extractor mechanics.)
 
 ### Phase 1 — Single small GQA model (the cheap falsifier) *(highest information/cost)*
 - Run on **one** 1–3B GQA model end-to-end: per-head TwoNN → set d_local; O_h + bootstrap CI;
