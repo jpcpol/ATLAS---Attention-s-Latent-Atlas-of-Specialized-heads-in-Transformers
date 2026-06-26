@@ -334,6 +334,39 @@ valid first data point that still exercises RMSNorm+RoPE+GQA.
   a k=7 artifact. Note added to §3.1b. Combined with the intra-model control: the gap is real geometry
   (sweep), but cannot yet be named a "d_head effect" because d_head and d_int are entangled (intra).
 
+- **✅ CHEAP EXPERIMENT DONE (2026-06-26) — model scale is NOT the lever.** Since d_int is emergent
+  (Valeriani 2302.00294: ID emerges through training, not a hyperparameter), the converse no-retraining
+  intervention: hold d_head FIXED (=64, GPT-2 family) and vary size, at a fixed *relative* depth (0.9 —
+  the ID profile's phases are located by relative, not absolute, depth). `src/atlas_dhead_control.py`,
+  data `docs/dhead_control.json`.
+
+  | model | layers | O_h | plateau d_int (rel 0.9) | peak d_int |
+  |---|---|---|---|---|
+  | gpt2 | 12 | 0.278 | 7.91 | 9.08 |
+  | gpt2-medium | 24 | 0.280 | 8.00 | 9.66 |
+  | gpt2-large | 36 | 0.279 | 7.85 | 10.53 |
+  | spread | | 0.002 | 0.15 | 1.45 |
+
+  **Result:** with d_head fixed, O_h (spread 0.002) and plateau d_int (0.15) are FLAT across 3× depth;
+  only the PEAK d_int grows with size (1.45) — exactly Valeriani's "peak grows, plateau ~constant". So
+  the intervention we wanted (move d_int with d_head fixed) is not realizable by scale: within a fixed
+  d_head the plateau d_int doesn't move, so it can't move O_h. Consequences: (i) the
+  d_head↔plateau-d_int↔O_h coupling is NOT a scale effect; (ii) O_h tracks the *plateau* d_int, not the
+  peak — disambiguating *which* d_int matters. Rules scale out as the lever; sharpens the ablation to
+  d_head. (Searched the literature first to vet the ChatGPT framing: post-treatment mediation confirmed
+  spurious → not in paper; d_int-as-emergent confirmed [Valeriani]; the "latent Λ" intuition refined to
+  the concrete peak/plateau split.)
+
+### Reframed research question (post-controls, 2026-06-26)
+
+The four controls (robustness, sweep, intra-model, cheap-experiment) + literature reframe the agenda
+from *"which hyperparameter sets O_h?"* to **"what is the minimal geometric quantity that jointly
+organizes the plateau intrinsic dimension and O_h, and which architectural decisions modulate it?"**
+The evidence so far: O_h is coupled to the *plateau* (deep-régime) d_int; that coupling is set by
+d_head (between clusters) and NOT by scale (within a fixed d_head); d_head and plateau-d_int remain
+confounded. Next: a matched-scale ablation varying d_head with d_model/n_KV/depth/data fixed, *measuring
+plateau d_int post-hoc as a mediator* (exploratory only — post-treatment mediator, NOT a causal claim).
+
 ### Phase 3 — Write-up integration *(only after G2)*
 - Add a cross-architecture subsection + one figure (O_h vs architecture with CIs, analogous to Fig 2).
 - **Title/abstract change only if Case A or B holds** (per `tarea.txt`: do not touch the title until

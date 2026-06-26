@@ -1,0 +1,142 @@
+{
+  "family": "gpt2",
+  "d_head": 64,
+  "rel_depth": 0.9,
+  "rows": [
+    {
+      "model": "gpt2",
+      "n_layer": 12,
+      "d_head": 64,
+      "rel_depth": 0.9,
+      "layer_at_rel": 10,
+      "N": 1200,
+      "O_h": 0.27827374117844034,
+      "d_int_at_rel": 7.912957183126354,
+      "d_int_peak": 9.077924514275132,
+      "profile": [
+        {
+          "rel": 0.0,
+          "layer": 0,
+          "d_int": 7.134037241345164
+        },
+        {
+          "rel": 0.2,
+          "layer": 2,
+          "d_int": 5.975404170360349
+        },
+        {
+          "rel": 0.4,
+          "layer": 4,
+          "d_int": 8.96666753084339
+        },
+        {
+          "rel": 0.6,
+          "layer": 7,
+          "d_int": 9.077924514275132
+        },
+        {
+          "rel": 0.8,
+          "layer": 9,
+          "d_int": 7.5247420915564085
+        },
+        {
+          "rel": 1.0,
+          "layer": 11,
+          "d_int": 6.815234222888121
+        }
+      ]
+    },
+    {
+      "model": "gpt2-medium",
+      "n_layer": 24,
+      "d_head": 64,
+      "rel_depth": 0.9,
+      "layer_at_rel": 21,
+      "N": 1200,
+      "O_h": 0.2804830752313137,
+      "d_int_at_rel": 8.001552497591042,
+      "d_int_peak": 9.655437246671267,
+      "profile": [
+        {
+          "rel": 0.0,
+          "layer": 0,
+          "d_int": 4.2942250342447394
+        },
+        {
+          "rel": 0.2,
+          "layer": 5,
+          "d_int": 9.655437246671267
+        },
+        {
+          "rel": 0.4,
+          "layer": 9,
+          "d_int": 8.08174101245329
+        },
+        {
+          "rel": 0.6,
+          "layer": 14,
+          "d_int": 8.241258340281494
+        },
+        {
+          "rel": 0.8,
+          "layer": 18,
+          "d_int": 8.671819139309104
+        },
+        {
+          "rel": 1.0,
+          "layer": 23,
+          "d_int": 6.3488090420067955
+        }
+      ]
+    },
+    {
+      "model": "gpt2-large",
+      "n_layer": 36,
+      "d_head": 64,
+      "rel_depth": 0.9,
+      "layer_at_rel": 32,
+      "N": 1200,
+      "O_h": 0.27912915999952115,
+      "d_int_at_rel": 7.853227519825652,
+      "d_int_peak": 10.530152626806371,
+      "profile": [
+        {
+          "rel": 0.0,
+          "layer": 0,
+          "d_int": 5.077448268272822
+        },
+        {
+          "rel": 0.2,
+          "layer": 7,
+          "d_int": 6.469891233264434
+        },
+        {
+          "rel": 0.4,
+          "layer": 14,
+          "d_int": 10.530152626806371
+        },
+        {
+          "rel": 0.6,
+          "layer": 21,
+          "d_int": 7.665710258770846
+        },
+        {
+          "rel": 0.8,
+          "layer": 28,
+          "d_int": 8.032988864317684
+        },
+        {
+          "rel": 1.0,
+          "layer": 35,
+          "d_int": 5.164007844178305
+        }
+      ]
+    }
+  ],
+  "spreads": {
+    "d_int_at_rel": 0.1483249777653901,
+    "O_h": 0.0022093340528733796,
+    "d_int_peak": 1.4522281125312393
+  },
+  "verdict": "D_HEAD-AS-SCALE SUPPORTED: with d_head fixed, plateau d_int AND O_h are both ~flat. d_int moves only WITH d_head (between clusters), not within a fixed-d_head family => d_head (or its associated scale) organizes O_h; d_int is a downstream readout. (Peak d_int may still grow with size \u2014 report peak vs plateau separately, per Valeriani.)"
+}

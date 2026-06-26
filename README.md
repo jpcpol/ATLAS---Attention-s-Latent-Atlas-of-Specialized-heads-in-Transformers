@@ -120,6 +120,7 @@ NQP/
 | [src/residual_backends.py](src/residual_backends.py) | **Architecture-agnostic residual extraction** (GPT-2 / Llama / Mistral / Qwen2 backends; handles RMSNorm, RoPE, GQA). Lets the same O_h protocol run on any of the four families. |
 | [src/atlas_crossarch.py](src/atlas_crossarch.py) | **Cross-architecture O_h** with the GQA intra/inter-group pair split + per-model d_local + fixed-d_local control + depth×seed robustness. The Phase 1/2 driver. |
 | [src/atlas_intramodel.py](src/atlas_intramodel.py) | **Intra-model confounder control:** within one model, correlate each head's intrinsic dimension against its overlap (Spearman + permutation p). Discriminates d_head vs d_int as the cross-arch driver — without retraining. |
+| [src/atlas_dhead_control.py](src/atlas_dhead_control.py) | **Scale-is-not-the-lever control:** hold d_head fixed (GPT-2 family), vary size, measure O_h and the per-layer d_int profile at fixed *relative* depth. Separates peak from plateau d_int (per Valeriani [18]); shows O_h tracks the plateau, not scale. |
 | [src/autoencoder.py](src/autoencoder.py) | **EXP-Q06:** per-head nonlinear autoencoder (64→7→64) vs PCA rank-7. Clean negative: the manifold is not functionally compressible by this route. |
 | [src/figure_data.py](src/figure_data.py) | Collects the figure data → `docs/figure_data.json`. |
 | [src/make_figures.py](src/make_figures.py) | Renders the 9 figures → `docs/figures/` (incl. Fig 6, cross-architecture). |
@@ -154,7 +155,8 @@ depth.
 | Preprint | ✅ Complete draft (title promoted; cross-arch §3.1b + Fig 6 integrated) |
 | Bibliographic metadata confirmation | ⬜ Pending (reference manager; refs [17]–[23] flagged) |
 | Intra-model confounder control (d_head vs d_int) | ✅ Done — d_head is **confounded** with intrinsic dimension (Qwen ρ=−0.53, p=3e-4; GPT-2 same sign, n.s.). Lead demoted to "leading suspect" |
-| Architectural ablation — *what component sets O_h?* | ⬜ Open (d_head is the lead suspect but confounded with d_int; ablation must track d_int as mediator; see Future Work) |
+| Scale-is-not-the-lever control (d_head fixed) | ✅ Done — across GPT-2 family (d_head=64, 12→36 layers) O_h (spread 0.002) and *plateau* d_int (0.15) are flat; only *peak* d_int grows (1.45). O_h tracks plateau d_int, not scale |
+| Architectural ablation — *what component sets O_h?* | ⬜ Open (d_head is the lead suspect, confounded with plateau-d_int; scale ruled out; ablation must vary d_head and measure plateau-d_int as mediator) |
 
 ---
 
@@ -164,9 +166,14 @@ depth.
    question into this sharper one. The lead from our four points is **head dimension** (d_head 64 →
    ≈0.28, d_head 128 → ≈0.20, even though Qwen already has GQA/RoPE/RMSNorm) — but an intra-model
    control showed d_head is **confounded with intrinsic dimension**, which predicts overlap
-   head-by-head in at least one family (Qwen ρ=−0.53). So the matched-scale ablation over {MHA↔GQA,
-   #KV heads, d_head, RoPE↔learned, RMSNorm↔LayerNorm} must vary d_head while **tracking d_int as a
-   mediator**, not treat d_head as the isolated cause.
+   head-by-head in at least one family (Qwen ρ=−0.53). A second control ruled **scale** out as the
+   lever: across the GPT-2 family (d_head fixed) O_h and the *plateau* intrinsic dimension are flat
+   while only the *peak* d_int grows — so O_h tracks plateau-d_int, set by d_head, not by size. The
+   reframed question (cf. the latent-quantity intuition, vetted against [18]) is **what minimal
+   geometric quantity jointly organizes plateau-d_int and O_h, and which architectural decisions
+   modulate it?** The matched-scale ablation over {MHA↔GQA, #KV heads, d_head, RoPE↔learned,
+   RMSNorm↔LayerNorm} must vary d_head while **measuring plateau-d_int as a (post-treatment) mediator**
+   — exploratory only, not a causal claim.
    *Caveat (the NQP lesson): this establishes architecture→O_h, not O_h→quality.*
 2. **Geometric routing across heads** — dynamic activation of a subset of heads (MoE-like, but by
    latent geometry rather than learned logits).

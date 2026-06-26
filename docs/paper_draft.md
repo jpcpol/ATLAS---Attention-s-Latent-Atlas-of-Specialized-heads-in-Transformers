@@ -368,6 +368,16 @@ family it operates head-by-head. Consequently we do **not** attribute the cross-
 magnitude to head dimension; d_head and intrinsic dimension are confounded, and disentangling them is
 a goal for the controlled ablation, not a settled result (details in Appendix F).
 
+**Model scale is not the lever (a no-retraining intervention).** Since d_int is an emergent property,
+not a hyperparameter [18], we cannot set it directly; but we can hold d_head *fixed* and vary scale
+instead. Across the GPT-2 family (d_head = 64 throughout, 12 → 36 layers), measured at a fixed
+*relative* depth (0.9, since the per-layer ID profile is set by relative depth [18]), O_h is invariant
+(spread 0.002) and the plateau intrinsic dimension is invariant (spread 0.15); only the *peak*
+intrinsic dimension grows with size (spread 1.45, as [18] report). Within a fixed head dimension,
+model size moves neither the plateau d_int nor O_h. So the d_head↔(plateau-)d_int↔O_h coupling is not
+a scale effect, and O_h tracks the plateau intrinsic dimension rather than the peak — sharpening the
+eventual ablation to d_head itself (Appendix F).
+
 We therefore promote the claim to its architecture-aware form:
 
 > *Across four autoregressive transformer families, attention heads consistently organize into
@@ -697,6 +707,32 @@ d_int range is itself layer-dependent (e.g. one Qwen layer has a collapsed d_int
 correlation, as expected when the predictor has little variance). The honest conclusion is that
 d_head and d_int are entangled and only a matched-scale ablation can separate them. Code:
 `src/atlas_intramodel.py`; data: `docs/intramodel_gpt2.json`, `docs/intramodel_qwen.json`.
+
+**The converse intervention: hold d_head fixed, vary scale.** d_int cannot be set directly (it is
+emergent [18]), so the complementary no-retraining test fixes d_head and varies model size across the
+GPT-2 family. Two design choices are forced by the ID literature [18]: (i) we sample a fixed
+*relative* depth (0.9), because the per-layer ID profile has expansion→compression→ascent phases
+located by relative depth, so a fixed absolute layer would land in different phases per model; (ii) we
+report the per-layer ID *profile* and separate its peak from its (relative-depth) plateau, because [18]
+find the peak grows with size while the plateau is ~constant — collapsing them to one scalar would
+hide exactly that structure.
+
+| model | layers | d_head | O_h (k=7) | plateau d_int (rel 0.9) | peak d_int |
+|---|---|---|---|---|---|
+| GPT-2 | 12 | 64 | 0.278 | 7.91 | 9.08 |
+| GPT-2-medium | 24 | 64 | 0.280 | 8.00 | 9.66 |
+| GPT-2-large | 36 | 64 | 0.279 | 7.85 | 10.53 |
+| spread | | | 0.002 | 0.15 | 1.45 |
+
+**Reading.** With d_head fixed, O_h (spread 0.002) and the plateau d_int (spread 0.15) are flat across
+a 3× depth range, while only the peak d_int grows with size (1.45) — reproducing [18]. The
+intervention we wanted (move d_int with d_head fixed) is therefore not realizable by scale: within a
+fixed d_head the plateau d_int does not move, so it cannot induce a move in O_h. Two consequences:
+(i) the d_head↔plateau-d_int↔O_h coupling is *not* driven by depth/width; (ii) O_h tracks the *plateau*
+intrinsic dimension, not the peak — so among the two d_int notions the relevant one is the deep-régime
+plateau where O_h is measured. This does not break the d_head/d_int confound, but it rules scale out as
+the lever and points the matched-scale ablation at d_head. Code: `src/atlas_dhead_control.py`; data:
+`docs/dhead_control.json`.
 
 ## Appendix C — Reproducibility
 
