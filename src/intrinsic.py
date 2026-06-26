@@ -16,7 +16,6 @@ Robust, parameter-free, no external deps. We cross-check with the linear PCA dim
 
 from __future__ import annotations
 
-import math
 import sys
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -62,50 +61,18 @@ def linear_dim_90(X: Tensor) -> int:
     return int((cum < 0.90).sum().item()) + 1
 
 
-def collect_residuals(model, ids, seq_len, device, layers, n_blocks=4, max_points=3000):
-    """Collect attention residual vectors ε per (layer,head). Returns dict→[N,dh]."""
-    n_head = model.config.n_head
-    bufs = {}
-    handles = []
+def collect_residuals(model, ids, seq_len, device, layers, n_blocks=4, max_points=3000,
+                      group_mode="query"):
+    """Collect attention residual vectors ε per (layer,head). Returns dict→[N,dh].
 
-    def make_hook(li):
-        def hook(module, inp, out):
-            hidden = inp[0] if isinstance(inp, tuple) else inp
-            B, T, D = hidden.shape
-            dh = D // n_head
-            qkv = module.c_attn(hidden)
-            q, k, v = qkv.split(D, dim=2)
-            shp = lambda x: x.view(B, T, n_head, dh).permute(0, 2, 1, 3)
-            q, k, v = shp(q), shp(k), shp(v)
-            scores = (q @ k.transpose(-1, -2)) / math.sqrt(dh)
-            mask = torch.tril(torch.ones(T, T, device=hidden.device, dtype=torch.bool))
-            scores = scores.masked_fill(~mask, float("-inf"))
-            p = scores.softmax(dim=-1)
-            ctx = p @ v
-            i_star = p.argmax(dim=-1)
-            v_star = torch.gather(v, 2, i_star.unsqueeze(-1).expand(-1, -1, -1, dh))
-            eps = (ctx - v_star)[0]                          # [H,T,dh]
-            for h in range(n_head):
-                bufs.setdefault((li, h), []).append(eps[h].detach())
-        return hook
-
-    for li in layers:
-        handles.append(model.transformer.h[li].attn.register_forward_hook(make_hook(li)))
-    nb = min(n_blocks, ids.numel() // seq_len)
-    with torch.no_grad():
-        for b in range(nb):
-            blk = ids[b*seq_len:(b+1)*seq_len].unsqueeze(0).to(device)
-            model(input_ids=blk)
-    for hd in handles:
-        hd.remove()
-    out = {}
-    for key, chunks in bufs.items():
-        E = torch.cat(chunks, dim=0)
-        if E.shape[0] > max_points:
-            idx = torch.randperm(E.shape[0])[:max_points]
-            E = E[idx]
-        out[key] = E
-    return out
+    Architecture-agnostic since Phase 0: dispatches to a backend (GPT-2 / Llama-Mistral)
+    via residual_backends.get_backend. The output contract is unchanged. `group_mode`
+    ("query" | "kv") only affects GQA models; it is a no-op for GPT-2 MHA.
+    """
+    from residual_backends import get_backend
+    return get_backend(model).collect(model, ids, seq_len, device, layers,
+                                      n_blocks=n_blocks, max_points=max_points,
+                                      group_mode=group_mode)
 
 
 def run_exp_q05(layers=(9, 10, 11), n_blocks=4, device="cpu", seed=42):
