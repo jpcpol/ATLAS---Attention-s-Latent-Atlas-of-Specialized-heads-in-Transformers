@@ -1,0 +1,34 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Write-Output '{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"ARRANQUE — NQP/ATLAS: Lee .claude/MEMORY.md y luego .claude/memory/session_state.md. El CLAUDE.md raíz ya se cargó. RECORDAR: paper_draft.md está frozen, NQP-C1 está refutada, resultado central = O_h ≈ 0.28 scale-invariant.\"}}'",
+            "shell": "powershell",
+            "statusMessage": "Cargando contexto del proyecto..."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "Write-Output '{\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"AVISO: Contexto a punto de comprimirse. Actualizá .claude/memory/session_state.md AHORA con archivos modificados y decisiones tomadas.\"}}'",
+            "shell": "powershell",
+            "statusMessage": "Guardando estado antes de compresión..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": []
+      }
+    ]
+  }
+}
