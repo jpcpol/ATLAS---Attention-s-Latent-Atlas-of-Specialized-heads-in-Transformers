@@ -110,8 +110,16 @@ def _load_any(model_name, device, seed, dtype=None):
     tok = AutoTokenizer.from_pretrained(model_name)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_name, dtype=dtype)
-    model.eval().to(device)
+    # On GPU, stream shards straight into VRAM (device_map) with low_cpu_mem_usage so a
+    # 7B fp16 model does not have to fit in Colab's ~12 GB system RAM during load — the
+    # cause of the OOM that kills "Loading weights" partway through. On CPU, load plainly.
+    if is_cuda:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, dtype=dtype, device_map=device, low_cpu_mem_usage=True)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_name, dtype=dtype)
+        model.to(device)
+    model.eval()
     ds = _load_wikitext103(load_dataset)
     text = "\n\n".join(t for t in ds["validation"]["text"] if t.strip())
     ids = tok(text, return_tensors="pt")["input_ids"].squeeze(0)
