@@ -48,6 +48,10 @@ from torch import Tensor
 # ---------------------------------------------------------------------------
 
 def _subsample(E: Tensor, max_points: int) -> Tensor:
+    # Land clouds on CPU/float32 so downstream SVD/TwoNN are precision-stable
+    # regardless of model dtype (fp16 on GPU). No-op for the CPU/fp32 GPT-2 path,
+    # so the regression gate stays bit-for-bit.
+    E = E.to(device="cpu", dtype=torch.float32)
     if E.shape[0] > max_points:
         idx = torch.randperm(E.shape[0])[:max_points]
         E = E[idx]
@@ -191,13 +195,13 @@ class LlamaBackend(ResidualBackend):
                 nq = eps.shape[0]
                 if group_mode == "query":
                     for h in range(nq):
-                        bufs.setdefault((li, h), []).append(eps[h].detach())
+                        bufs.setdefault((li, h), []).append(eps[h].detach().cpu())
                 else:  # "kv": pool the n_rep query heads of each KV group
                     n_kv = nq // n_rep
                     for g in range(n_kv):
                         grp = eps[g * n_rep:(g + 1) * n_rep]             # [n_rep,T,dh]
                         bufs.setdefault((li, g), []).append(
-                            grp.reshape(-1, grp.shape[-1]).detach())     # [n_rep*T,dh]
+                            grp.reshape(-1, grp.shape[-1]).detach().cpu())  # [n_rep*T,dh]
                 return orig(hidden_states, position_embeddings=position_embeddings,
                             attention_mask=attention_mask,
                             past_key_values=past_key_values, **kw)

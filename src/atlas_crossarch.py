@@ -91,19 +91,27 @@ def _ci_line(name, vals):
 # loaders / collection
 # ---------------------------------------------------------------------------
 
-def _load_any(model_name, device, seed):
-    """Generic causal-LM loader (GPT-2 / Llama / Mistral / Qwen2) + WikiText-103."""
+def _load_any(model_name, device, seed, dtype=None):
+    """Generic causal-LM loader (GPT-2 / Llama / Mistral / Qwen2) + WikiText-103.
+
+    dtype defaults to float32 on CPU and float16 on cuda (a 7B fits in 16 GB VRAM in
+    fp16). Subspace geometry is robust to precision, but the GPU regression gate
+    (run GPT-2 in fp16 and check O_h=0.284) verifies this rather than assuming it.
+    """
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from datasets import load_dataset
     import os
     torch.manual_seed(seed)
-    if str(device) == "cpu":
+    is_cuda = str(device).startswith("cuda")
+    if not is_cuda:
         torch.set_num_threads(min(8, os.cpu_count() or 4))
+    if dtype is None:
+        dtype = torch.float16 if is_cuda else torch.float32
     tok = AutoTokenizer.from_pretrained(model_name)
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_name, dtype=torch.float32)
-    model.eval()
+    model = AutoModelForCausalLM.from_pretrained(model_name, dtype=dtype)
+    model.eval().to(device)
     ds = load_dataset("wikitext", "wikitext-103-raw-v1")
     text = "\n\n".join(t for t in ds["validation"]["text"] if t.strip())
     ids = tok(text, return_tensors="pt")["input_ids"].squeeze(0)
