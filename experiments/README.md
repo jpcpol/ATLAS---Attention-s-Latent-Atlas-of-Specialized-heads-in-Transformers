@@ -1,32 +1,32 @@
 # NQP — Experiments
 
-## Orden de ejecución propuesto
+## Proposed execution order
 
-### EXP-001 — Baseline Fisher diagonal en GPT-2 small
-**Objetivo:** verificar que $\hat{P}$ derivado de Fisher diagonal reduce $\varepsilon_Q$
-respecto a cuantización estándar en un modelo controlado (GPT-2 124M).
+### EXP-001 — Diagonal Fisher baseline on GPT-2 small
+**Objective:** verify that $\hat{P}$ derived from a diagonal Fisher reduces $\varepsilon_Q$
+relative to standard quantization on a controlled model (GPT-2 124M).
 
-**Métricas:** PPL en WikiText-103, error de cuantización L2 por capa, bits efectivos usados.
+**Metrics:** PPL on WikiText-103, per-layer L2 quantization error, effective bits used.
 
-**Comparadores:** INT8 estándar, GPTQ 4-bit, QuIP 4-bit.
+**Comparators:** standard INT8, GPTQ 4-bit, QuIP 4-bit.
 
-**Estado:** `src/fisher.py` implementado. Listo para ejecutar con `python src/fisher.py --bits 8 --n-calib 256`.
-
----
-
-### EXP-002 — Escala a Llama-3 8B
-**Prerequisito:** EXP-001 muestra mejora en GPT-2.
-
-**Objetivo:** validar NQP-C1 a escala práctica.
-
-**Estado:** pendiente.
+**Status:** `src/fisher.py` implemented. Ready to run with `python src/fisher.py --bits 8 --n-calib 256`.
 
 ---
 
-### EXP-003 — Test de NQP-C2 (forma fuerte)
-**Objetivo:** verificar si modelo NQP-4bit supera FP32 en tareas específicas.
+### EXP-002 — Scaling to Llama-3 8B
+**Prerequisite:** EXP-001 shows improvement on GPT-2.
 
-**Hipótesis de trabajo:** en tareas de code review (distribución de calibración = código),
-NQP actúa como regularizador y mejora precisión vs FP32.
+**Objective:** validate NQP-C1 at practical scale.
 
-**Estado:** pendiente — requiere EXP-002.
+**Status:** pending.
+
+---
+
+### EXP-003 — Test of NQP-C2 (strong form)
+**Objective:** verify whether an NQP-4bit model beats FP32 on specific tasks.
+
+**Working hypothesis:** on code-review tasks (calibration distribution = code), NQP acts as a
+regularizer and improves accuracy vs FP32.
+
+**Status:** pending — requires EXP-002.

@@ -1,76 +1,75 @@
-# NQP — Preguntas de investigación abiertas
+# NQP — Open research questions
 
-**Última actualización:** 2026-06-24
+**Last updated:** 2026-06-24
 
 ---
 
 ## RQ-1 (Central)
-¿Existe un operador de preparación $\hat{P}$ derivado de la métrica de Fisher de un LLM
-tal que cuantizar en la base de $\hat{P}$ minimice el error de cuantización respecto a
-cualquier método de cuantización con rejilla fija?
+Does there exist a preparation operator $\hat{P}$ derived from the Fisher metric of an LLM
+such that quantizing in the basis of $\hat{P}$ minimizes the quantization error relative to
+any fixed-grid quantization method?
 
-**Hipótesis:** Sí. La base de Fisher es la base "natural" del modelo en el sentido de que
-en ella las direcciones de pesos son independientes bajo la loss — y cuantizar direcciones
-independientes con presupuesto de bits proporcional a su curvatura es óptimo (argumento
-de rate-distortion).
+**Hypothesis:** Yes. The Fisher basis is the model's "natural" basis in the sense that, in it,
+the weight directions are independent under the loss — and quantizing independent directions
+with a bit budget proportional to their curvature is optimal (a rate-distortion argument).
 
 ---
 
 ## RQ-2
-¿Es la matriz de Fisher $F$ computable de forma suficientemente eficiente para modelos
-de escala práctica (7B–70B parámetros)?
+Is the Fisher matrix $F$ computable efficiently enough for models at practical scale
+(7B–70B parameters)?
 
-**Estado del arte:** K-FAC (Kronecker-factored approximation), diagonal Fisher, Fisher de
-bloque por capa. La pregunta es si alguna aproximación preserva suficiente estructura para
-que $\hat{P}$ derivado de ella sea mejor que una rotación aleatoria (QuIP).
+**State of the art:** K-FAC (Kronecker-factored approximation), diagonal Fisher, per-layer
+block Fisher. The question is whether any approximation preserves enough structure for the
+$\hat{P}$ derived from it to beat a random rotation (QuIP).
 
 ---
 
 ## RQ-3
-¿Existe una noción de "principio de incertidumbre" en el espacio de pesos?
+Is there a notion of an "uncertainty principle" in weight space?
 
-**Intuición:** si $\hat{P}$ diagonaliza $F$, puede haber direcciones donde precisión de
-pesos y precisión de activaciones no pueden optimizarse simultáneamente — análogo al
-principio de incertidumbre de Heisenberg entre posición y momento.
+**Intuition:** if $\hat{P}$ diagonalizes $F$, there may be directions where weight precision
+and activation precision cannot be optimized simultaneously — analogous to Heisenberg's
+uncertainty principle between position and momentum.
 
-**Formalización tentativa:** para $\hat{P}$ que diagonaliza $F_W$ (Fisher respecto a pesos)
-y $G_A$ (Fisher respecto a activaciones), si $[\hat{P}_W, \hat{P}_A] \neq 0$, entonces
-existe un trade-off fundamental entre error de cuantización en pesos y error de activaciones.
+**Tentative formalization:** for $\hat{P}$ that diagonalizes $F_W$ (Fisher with respect to
+weights) and $G_A$ (Fisher with respect to activations), if $[\hat{P}_W, \hat{P}_A] \neq 0$,
+then there is a fundamental trade-off between weight quantization error and activation error.
 
 ---
 
 ## RQ-4
-¿NQP-C2 (forma fuerte de la conjetura) puede ser verdadera?
+Can NQP-C2 (the strong form of the conjecture) be true?
 
-La conjetura dice que cuantizar en base natural con $b$ bits puede *superar* FP32. Esto
-implicaría que $\hat{P}$ actúa como regularizador: al eliminar las componentes de baja
-curvatura (poco relevantes para la loss), se reduce overfitting a ruido de entrenamiento.
+The conjecture says that quantizing in the natural basis with $b$ bits can *beat* FP32. This
+would imply that $\hat{P}$ acts as a regularizer: by removing the low-curvature components
+(barely relevant to the loss), it reduces overfitting to training noise.
 
-**Análogía:** la cuantización en base natural sería equivalente a truncar los eigenvalores
-de Fisher pequeños — similar a low-rank approximation o dropout estructurado.
+**Analogy:** quantizing in the natural basis would be equivalent to truncating the small
+Fisher eigenvalues — similar to low-rank approximation or structured dropout.
 
 ---
 
 ## RQ-5
-¿Qué relación tiene NQP con los métodos existentes?
+How does NQP relate to existing methods?
 
-- GPTQ usa la Hessiana de outputs por capa → aproximación de $F$ local
-- QuIP usa rotaciones ortogonales aleatorias → $\hat{P}$ sin estructura
-- AWQ usa escala por canal → $\hat{P}$ diagonal
-- **NQP usa $F$ global (o por bloque) con estructura de eigenvalores** → generalización
+- GPTQ uses the per-layer output Hessian → a local approximation of $F$
+- QuIP uses random orthogonal rotations → $\hat{P}$ with no structure
+- AWQ uses per-channel scaling → diagonal $\hat{P}$
+- **NQP uses a global (or block-wise) $F$ with eigenvalue structure** → a generalization
 
-Si NQP = QuIP cuando $F = I$ (Fisher isotrópico), la conexión es exacta y NQP es
-estrictamente más general.
+If NQP = QuIP when $F = I$ (isotropic Fisher), the connection is exact and NQP is strictly
+more general.
 
 ---
 
-## RQ-6 (Aplicada)
-¿Puede NQP usarse como capa de infraestructura para modelos dentro de CAL?
+## RQ-6 (Applied)
+Can NQP be used as an infrastructure layer for models within CAL?
 
-Si NQP produce modelos cuantizados con menor degradación, el evaluador LLM de CAL/L2
-(actualmente `claude-sonnet-4-6` vía API) podría eventualmente reemplazarse por un modelo
-local cuantizado via NQP con calidad equivalente — reduciendo costos de inferencia del
-experimento y eliminando la dependencia de API externa.
+If NQP produces quantized models with less degradation, the CAL/L2 LLM evaluator (currently
+`claude-sonnet-4-6` via API) could eventually be replaced by a local model quantized via NQP
+with equivalent quality — reducing the experiment's inference costs and removing the
+dependency on an external API.
 
-**Condición:** el modelo NQP-cuantizado debe pasar el gate φ de CAL (ρ ≥ 0.75 en el
-benchmark DT-021).
+**Condition:** the NQP-quantized model must pass CAL's φ gate (ρ ≥ 0.75 on the DT-021
+benchmark).

@@ -1,109 +1,110 @@
-# NQP — Qué significan los resultados frente al objetivo inicial
+# NQP — What the results mean against the initial objective
 
-**Fecha:** 2026-06-25 · **Investigador:** Juan Pablo Chancay
+**Date:** 2026-06-25 · **Researcher:** Juan Pablo Chancay
 
-Este documento cierra el arco del proyecto: contrasta lo obtenido con la **hipótesis fundacional**
-declarada en `CLAUDE.md`, sin maquillar el desenlace.
+This document closes the project's arc: it contrasts what was obtained with the **founding
+hypothesis** declared in `CLAUDE.md`, with the outcome stated plainly.
 
 ---
 
-## 1. El objetivo inicial (recordatorio textual)
+## 1. The initial objective (verbatim reminder)
 
-> **NQP — Natural Quantization via State Preparation.** Optimizar la cuantización de LLMs mediante
-> transformaciones que alineen la rejilla discreta con la geometría natural del espacio de pesos.
+> **NQP — Natural Quantization via State Preparation.** Optimize the quantization of LLMs via
+> transformations that align the discrete grid with the natural geometry of weight space.
 >
-> **Intuición:** en mecánica cuántica un sistema colapsa a un eigenvalor del operador de medición;
-> la discreción *emerge* de la geometría. En cuantización ML estándar la rejilla se *impone*
-> externamente y genera ruido porque no respeta esa geometría.
+> **Intuition:** in quantum mechanics a system collapses to an eigenvalue of the measurement
+> operator; discreteness *emerges* from the geometry. In standard ML quantization the grid is
+> *imposed* externally and generates noise because it does not respect that geometry.
 >
-> **Hipótesis NQP:** existe un operador de preparación P̂ (de la métrica de Fisher) tal que
-> cuantizar en la base de P̂ minimiza el error — análogo a medir en la base propia del Hamiltoniano.
+> **NQP hypothesis:** there exists a preparation operator P̂ (from the Fisher metric) such that
+> quantizing in the basis of P̂ minimizes the error — analogous to measuring in the Hamiltonian's
+> eigenbasis.
 
-En una frase: **¿se puede cuantizar mejor rotando primero a una "base natural" derivada de Fisher?**
-
----
-
-## 2. La respuesta directa a esa pregunta: **NO**
-
-La hipótesis central (NQP-C1) fue **refutada empíricamente**. En orden:
-
-- **Fisher diagonal (EXP-001):** la base de P̂ colapsa a la identidad (P̂ = I) — no hay rotación,
-  no hay "base natural" distinta de la canónica. La cuantización en esa base es idéntica a RTN.
-- **Fisher por bloques con rotación real (A-G4):** una rotación genuina P̂ ≠ I **no supera** a las
-  líneas base fuertes (GPTQ + AWQ + QuIP). La analogía con "medir en la base del Hamiltoniano"
-  resultó **metafórica**: el Fisher de activaciones es de rango ~2, no el operador rico que la
-  intuición cuántica presuponía.
-
-**Conclusión sobre el objetivo declarado:** NQP, *como método de cuantización*, no existe como
-ventaja. La geometría de Fisher de las activaciones no es el "Hamiltoniano" que justificaría una
-base de medición privilegiada. El proyecto **no produjo** la herramienta de deployment que se
-imaginó al inicio.
+In one sentence: **can we quantize better by first rotating into a Fisher-derived "natural basis"?**
 
 ---
 
-## 3. Por qué el proyecto no terminó ahí: el pivote
+## 2. The direct answer to that question: **NO**
 
-La refutación dejó una pregunta más fina en pie. Si la analogía cuántica falla en *cuantización*,
-¿falla por completo, o hay una parte de la estructura cuántica que **sí** describe al transformer?
-Eso reorientó el proyecto en dos saltos:
+The central hypothesis (NQP-C1) was **empirically refuted**. In order:
 
-1. **Principio de incertidumbre peso/activación (NQP-U).** ¿Las bases de Fisher de pesos y de
-   activaciones *no conmutan* (como observables incompatibles)? **U1a: sí** (ángulo 48.8° vs 83°
-   aleatorio — incompatibilidad real). **U1b: no hay consecuencia operativa** (la correlación
-   ángulo↔error es espuria: cae a −0.04 al controlar por ε_W). Verdad geométrica, sin payoff en
-   cuantización.
+- **Diagonal Fisher (EXP-001):** the P̂ basis collapses to the identity (P̂ = I) — no rotation,
+  no "natural basis" distinct from the canonical one. Quantizing in that basis is identical to RTN.
+- **Block-wise Fisher with real rotation (A-G4):** a genuine rotation P̂ ≠ I **does not beat** the
+  strong baselines (GPTQ + AWQ + QuIP). The analogy with "measuring in the Hamiltonian's basis"
+  turned out to be **metaphorical**: the activation Fisher is rank ~2, not the rich operator the
+  quantum intuition presupposed.
 
-2. **Caracterización termodinámica/geométrica de la atención** (línea sucesora). Aquí el ancla
-   dejó de ser metáfora: `softmax(QKᵀ/√d)` **es** literalmente una distribución de Boltzmann.
-   Esa identidad exacta abrió la línea que sí produjo resultados positivos.
+**Conclusion about the declared objective:** NQP, *as a quantization method*, does not exist as an
+advantage. The activation Fisher geometry is not the "Hamiltonian" that would justify a privileged
+measurement basis. The project **did not produce** the deployment tool envisioned at the start.
 
 ---
 
-## 4. Lo que el proyecto SÍ descubrió (y que no buscaba)
+## 3. Why the project did not end there: the pivot
 
-El resultado central del proyecto **no es de cuantización** sino **de geometría de
-representaciones**, recogido en el paper *"A Scale-Invariant Atlas of Head-Specific Manifolds in
-Transformer Residual Attention"*:
+The refutation left a finer question standing. If the quantum analogy fails in *quantization*, does
+it fail entirely, or is there a part of the quantum structure that **does** describe the
+transformer? That reoriented the project in two jumps:
 
-| Hallazgo | Estado |
+1. **Weight/activation uncertainty principle (NQP-U).** Do the Fisher bases of weights and
+   activations *fail to commute* (like incompatible observables)? **U1a: yes** (angle 48.8° vs 83°
+   random — real incompatibility). **U1b: no operational consequence** (the angle↔error correlation
+   is spurious: it drops to −0.04 when controlling for ε_W). A geometric truth, with no payoff in
+   quantization.
+
+2. **Thermodynamic/geometric characterization of attention** (the successor line). Here the anchor
+   stopped being a metaphor: `softmax(QKᵀ/√d)` **is** literally a Boltzmann distribution. That exact
+   identity opened the line that did produce positive results.
+
+---
+
+## 4. What the project DID discover (and was not looking for)
+
+The project's central result is **not about quantization** but about **representation geometry**,
+collected in the paper *"A Scale-Invariant Atlas of Head-Specific Manifolds in Transformer Residual
+Attention"*:
+
+| Finding | Status |
 |---|---|
-| Residual de atención ε = Attn − V_{i\*} vive en **manifold no-lineal ~7D** por cabeza (vs ~30 lineal) | ✅ robusto |
-| Las cabezas ocupan **subespacios mutuamente no-alineados** (overlap O_h ≈ 0.28) | ✅ robusto, **resultado central** |
-| La no-alineación es **invariante a escala** (small/medium/large, CIs solapan) y **a corpus** (WikiText vs C4) | ✅ robusto |
-| Estructura de fases termodinámica (líquido→cristal) + S_vn como **proxy de incertidumbre** | ✅ resultado bridge |
-| No comprimible por selección dura (Top-k), por low-rank lineal, ni por autoencoder no-lineal por-cabeza | ✅ tres negativos limpios |
+| The attention residual ε = Attn − V_{i\*} lives on a **~7D nonlinear manifold** per head (vs ~30 linear) | ✅ robust |
+| Heads occupy **mutually non-aligned subspaces** (overlap O_h ≈ 0.28) | ✅ robust, **central result** |
+| The non-alignment is **scale-invariant** (small/medium/large, CIs overlap) and **corpus-invariant** (WikiText vs C4) | ✅ robust |
+| Thermodynamic phase structure (liquid→crystal) + S_vn as an **uncertainty proxy** | ✅ bridge result |
+| Not compressible by hard selection (Top-k), by linear low-rank, or by a per-head nonlinear autoencoder | ✅ three clean negatives |
 
-La "geometría natural del espacio" que NQP buscaba **existe** — pero no en los *pesos* (donde se la
-buscó para cuantizar) sino en el *residual de la atención*, y **no se traduce en compresión**.
-
----
-
-## 5. La lección epistemológica (el verdadero retorno del proyecto)
-
-El objetivo inicial era una **apuesta sobre una analogía física**. El valor del proyecto no fue
-confirmarla sino **medir con disciplina dónde la analogía es literal y dónde es decorativa**:
-
-- **Literal y útil:** softmax = Boltzmann → termodinámica de la atención medible.
-- **Real pero inerte:** no-conmutatividad peso/activación (incertidumbre sin consecuencia).
-- **Decorativa:** "base del Hamiltoniano" para cuantizar (Fisher de activaciones rango ~2).
-
-Patrón metodológico recurrente que el proyecto consolidó: **la herramienta ingenua sobre-concluye;
-el control correcto reenmarca.** Apareció cuatro veces — error L2 sesga contra NQP; correlación
-bivariada vs parcial en U1b; rango lineal (PCA) vs dimensión intrínseca (TwoNN); y "atlas" como
-fiber-bundle formal vs descriptivo. Cada vez, el control honesto evitó una sobre-afirmación.
+The "natural geometry of the space" that NQP sought **exists** — but not in the *weights* (where it
+was sought for quantization), rather in the *attention residual*, and it **does not translate into
+compression**.
 
 ---
 
-## 6. Veredicto frente al objetivo inicial
+## 5. The epistemological lesson (the project's real return)
 
-- **¿Se cumplió el objetivo declarado (cuantización natural vía Fisher)?** **No.** Refutado y
-  documentado, no abandonado en silencio.
-- **¿El proyecto fracasó?** **No.** Convirtió una hipótesis física refutada en un resultado de
-  interpretabilidad positivo, reproducible, delimitado y con controles negativos — un paper.
-- **¿Sigue viva la relación con CAL/L2 (deployment) que CLAUDE.md anticipaba?** No por la vía
-  prevista: NQP no es infraestructura de cuantización. Su contribución es conceptual
-  (representación geométrica de la atención), no de deployment.
+The initial objective was a **bet on a physical analogy**. The project's value was not confirming
+it but **measuring with discipline where the analogy is literal and where it is decorative**:
 
-> NQP empezó preguntando *cómo medir mejor para discretizar pesos* y terminó respondiendo *cómo
-> está organizada geométricamente la atención*. El objetivo original quedó refutado; el método de
-> trabajo que se usó para refutarlo produjo el resultado que vale.
+- **Literal and useful:** softmax = Boltzmann → measurable thermodynamics of attention.
+- **Real but inert:** weight/activation non-commutativity (uncertainty with no consequence).
+- **Decorative:** "Hamiltonian basis" for quantization (rank ~2 activation Fisher).
+
+A recurring methodological pattern the project consolidated: **the naive tool over-concludes; the
+correct control reframes.** It appeared four times — L2 error biases against NQP; bivariate vs
+partial correlation in U1b; linear rank (PCA) vs intrinsic dimension (TwoNN); and "atlas" as a
+formal fiber bundle vs a descriptive one. Each time, the honest control averted an overclaim.
+
+---
+
+## 6. Verdict against the initial objective
+
+- **Was the declared objective (natural quantization via Fisher) met?** **No.** Refuted and
+  documented, not quietly abandoned.
+- **Did the project fail?** **No.** It turned a refuted physical hypothesis into a positive,
+  reproducible, well-scoped interpretability result with negative controls — a paper.
+- **Is the relation to CAL/L2 (deployment) that CLAUDE.md anticipated still alive?** Not via the
+  intended route: NQP is not quantization infrastructure. Its contribution is conceptual (a
+  geometric representation of attention), not deployment.
+
+> NQP began by asking *how to measure better in order to discretize weights* and ended by answering
+> *how attention is organized geometrically*. The original objective was refuted; the working method
+> used to refute it produced the result that matters.

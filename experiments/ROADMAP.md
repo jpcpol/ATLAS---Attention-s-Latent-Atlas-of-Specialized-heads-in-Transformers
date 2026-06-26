@@ -1,206 +1,205 @@
-# NQP — Roadmap de comprobaciones A → B → C
+# NQP — Roadmap of checks A → B → C
 
-**Última actualización:** 2026-06-24
-**Estado de partida:** EXP-001 (Fisher diagonal, $\hat{P}=I$) implementado y validado.
+**Last updated:** 2026-06-24
+**Starting point:** EXP-001 (diagonal Fisher, $\hat{P}=I$) implemented and validated.
 
-**Resultado del barrido de calibración (2026-06-24):**
+**Result of the calibration sweep (2026-06-24):**
 
-| n_calib | bits | PPL std | PPL NQP | Δ | NQP gana (err L2) |
+| n_calib | bits | PPL std | PPL NQP | Δ | NQP wins (L2 err) |
 |---|---|---|---|---|---|
 | 32 | 8 | 34.06 | 36.67 | +2.61 | 0/48 |
 | 64 | 8 | 34.06 | 36.62 | +2.55 | 0/48 |
 | 128 | 8 | 34.06 | 37.02 | +2.96 | 0/48 |
-| 128 | 4 | 9808 | 7175 | (ambas basura) | **20/48** |
+| 128 | 4 | 9808 | 7175 | (both garbage) | **20/48** |
 
-**Lectura:**
-- **8 bits → diagonal plano y muerto.** Δ no se mueve con calibración (32→128). El problema
-  es estructural ($\hat{P}=I$), no de muestras. **Caso cerrado.**
-- **4 bits → aparece palanca cruda.** 20/48 capas reducen error L2 (vs 0/48 a 8 bits), pero
-  ambas PPL son basura (RTN a 4-bit destruye GPT-2) y el diagonal no puede convertir la
-  reducción de error-L2 en PPL porque le falta la rotación.
-- **Firma clara de que falta $\hat{P}\neq I$.** La señal a 4 bits es exactamente lo que el
-  Camino A debería poder explotar — y el baseline correcto a 4 bits es GPTQ, no RTN.
+**Reading:**
+- **8 bits → flat, dead diagonal.** Δ does not move with calibration (32→128). The problem
+  is structural ($\hat{P}=I$), not a matter of samples. **Case closed.**
+- **4 bits → a raw lever appears.** 20/48 layers reduce L2 error (vs 0/48 at 8 bits), but
+  both PPLs are garbage (4-bit RTN destroys GPT-2) and the diagonal cannot convert the
+  L2-error reduction into PPL because it lacks the rotation.
+- **A clear signature that $\hat{P}\neq I$ is missing.** The 4-bit signal is exactly what
+  Path A should be able to exploit — and the correct 4-bit baseline is GPTQ, not RTN.
 
-**Gate de entrada a Camino A: PASADO.**
+**Entry gate to Path A: PASSED.**
 
 ---
 
-## Por qué A → B → C (y no otro orden)
+## Why A → B → C (and not some other order)
 
-La intuición central de NQP (CLAUDE.md §"Intuición fundacional") es *cuantizar en la
-**base propia** del operador natural del modelo* — análogo a medir en la base del
-Hamiltoniano. Esa base propia es $\hat{P}=U$ con $U^T F U = \Lambda$
+NQP's central intuition (CLAUDE.md §"Foundational intuition") is to *quantize in the
+**eigenbasis** of the model's natural operator* — analogous to measuring in the Hamiltonian's
+basis. That eigenbasis is $\hat{P}=U$ with $U^T F U = \Lambda$
 ([operator_formalization.md:58](../theory/operator_formalization.md)).
 
-**El diagonal probado en EXP-001 tiene $U=I$: no hay base propia, no hay rotación.**
-Se reduce a escalado adaptativo por elemento (≈ AWQ). Por eso pierde. La hipótesis NQP-C1
-**nunca fue testeada de verdad** — testeamos su sombra trivial.
+**The diagonal tested in EXP-001 has $U=I$: no eigenbasis, no rotation.**
+It reduces to adaptive per-element scaling (≈ AWQ). That is why it loses. The NQP-C1 hypothesis
+**was never really tested** — we tested its trivial shadow.
 
-Los tres caminos son **niveles crecientes de fidelidad a la intuición**, ordenados por
-relación señal/esfuerzo:
+The three paths are **increasing levels of fidelity to the intuition**, ordered by
+signal/effort ratio:
 
-| | Camino | $\hat{P}$ | Encarna la intuición | Esfuerzo | Función en el roadmap |
+| | Path | $\hat{P}$ | Embodies the intuition | Effort | Role in the roadmap |
 |---|---|---|---|---|---|
-| **A** | Fisher por-bloque + rotación real | $U \neq I$ (eig de bloque) | ✅ Literal | Medio | **Prueba de existencia** de NQP-C1 |
-| **B** | K-FAC (Kronecker-factored) | $U_A \otimes U_G$ | ✅ Escalable | Alto | **Escala** A a LLMs reales |
-| **C** | Rate-distortion sobre eigenespectro | $U$ + asignación óptima de bits | ✅✅ Forma fuerte | Alto | **Teorema** (NQP-C1/C2 formal) |
+| **A** | Block-wise Fisher + real rotation | $U \neq I$ (block eig) | ✅ Literal | Medium | **Existence proof** of NQP-C1 |
+| **B** | K-FAC (Kronecker-factored) | $U_A \otimes U_G$ | ✅ Scalable | High | **Scales** A to real LLMs |
+| **C** | Rate-distortion over the eigenspectrum | $U$ + optimal bit allocation | ✅✅ Strong form | High | **Theorem** (formal NQP-C1/C2) |
 
-A es la apuesta de menor riesgo que toca la idea real. B solo tiene sentido si A funciona.
-C es el paper, y solo se escribe si A+B dan señal empírica.
+A is the lowest-risk bet that touches the real idea. B only makes sense if A works.
+C is the paper, and is only written if A+B give empirical signal.
 
 ---
 
-## CAMINO A — Fisher por-bloque con rotación real
+## PATH A — Block-wise Fisher with real rotation
 
-**Objetivo:** instanciar $\hat{P}=U \neq I$ y verificar si cuantizar en la base de Fisher
-(no aleatoria, a diferencia de QuIP) bate al baseline a bits bajos.
+**Objective:** instantiate $\hat{P}=U \neq I$ and check whether quantizing in the Fisher basis
+(not random, unlike QuIP) beats the baseline at low bits.
 
-**Definición operativa:**
-- Para cada matriz de pesos $W \in \mathbb{R}^{d_{out}\times d_{in}}$, estimar el Fisher
-  de bloque sobre las columnas de entrada: $F \in \mathbb{R}^{d_{in}\times d_{in}}$
-  (Gauss-Newton / empirical Fisher de activaciones de entrada — igual estructura que la
-  Hessiana de GPTQ).
-- Diagonalizar: $F = U\Lambda U^T$.
-- Rotar pesos a la base propia: $\tilde{W} = W U$.
-- Cuantizar $\tilde{W}$ con escala por-columna derivada de $\lambda_i$.
-- Reconstruir: $\hat{W} = Q(\tilde{W})\,U^T$.
+**Operational definition:**
+- For each weight matrix $W \in \mathbb{R}^{d_{out}\times d_{in}}$, estimate the block Fisher
+  over the input columns: $F \in \mathbb{R}^{d_{in}\times d_{in}}$ (Gauss-Newton / empirical
+  Fisher of input activations — same structure as GPTQ's Hessian).
+- Diagonalize: $F = U\Lambda U^T$.
+- Rotate the weights into the eigenbasis: $\tilde{W} = W U$.
+- Quantize $\tilde{W}$ with a per-column scale derived from $\lambda_i$.
+- Reconstruct: $\hat{W} = Q(\tilde{W})\,U^T$.
 
-**Comprobaciones (gates):**
-- **A-G1** — sanity: $U^TU = I$ (ortogonalidad numérica), reconstrucción FP32 sin cuantizar
-  recupera $W$ con error < 1e-5.
-- **A-G2** — error L2: $\varepsilon_{NQP} < \varepsilon_{std}$ en ≥ 60% de las capas a **4 bits**
-  (a 8 bits hay poca señal; el régimen interesante es 4/3 bits).
-- **A-G3** — PPL: $\text{PPL}_{NQP} \leq \text{PPL}_{GPTQ}$ en GPT-2 a 4 bits (GPTQ es el
-  comparador justo, no INT4-RTN).
-- **A-G4** — ablación clave: ¿la rotación de **Fisher** bate a una rotación **aleatoria**
-  (QuIP) con el mismo presupuesto? Si NO, la estructura de Fisher no aporta y NQP colapsa
-  a QuIP. **Este es el gate que decide si NQP existe como método.**
+**Checks (gates):**
+- **A-G1** — sanity: $U^TU = I$ (numerical orthogonality), FP32 reconstruction without
+  quantizing recovers $W$ with error < 1e-5.
+- **A-G2** — L2 error: $\varepsilon_{NQP} < \varepsilon_{std}$ in ≥ 60% of layers at **4 bits**
+  (at 8 bits there is little signal; the interesting regime is 4/3 bits).
+- **A-G3** — PPL: $\text{PPL}_{NQP} \leq \text{PPL}_{GPTQ}$ on GPT-2 at 4 bits (GPTQ is the
+  fair comparator, not INT4-RTN).
+- **A-G4** — key ablation: does the **Fisher** rotation beat a **random** rotation
+  (QuIP) at the same budget? If NOT, the Fisher structure adds nothing and NQP collapses
+  onto QuIP. **This is the gate that decides whether NQP exists as a method.**
 
-**Salida:** si A-G4 pasa → NQP tiene contenido empírico → proceder a B.
-Si A-G4 falla → la intuición es elegante pero la base de Fisher no supera al azar; pivotar
-a investigar *por qué* (¿Fisher mal estimado? ¿bloque demasiado pequeño?) antes de abandonar.
+**Outcome:** if A-G4 passes → NQP has empirical content → proceed to B.
+If A-G4 fails → the intuition is elegant but the Fisher basis does not beat chance; pivot
+to investigating *why* (poorly estimated Fisher? block too small?) before abandoning.
 
-### Resultado A-G4 v1 (2026-06-24) — FAIL, pero diagnóstico
+### A-G4 v1 result (2026-06-24) — FAIL, but diagnostic
 
-| base | mean err L2 (4-bit) |
+| basis | mean L2 err (4-bit) |
 |---|---|
-| RTN (sin rotar, U=I) | **4.97e-2** (mejor) |
+| RTN (no rotation, U=I) | **4.97e-2** (best) |
 | Fisher (U≠I) | 5.10e-2 |
-| Random (QuIP) | 5.27e-2 (peor) |
+| Random (QuIP) | 5.27e-2 (worst) |
 
-- Fisher bate a random en solo 16/49 capas (33%) → **FAIL del gate tal como estaba definido**.
-- **PERO**: en media, *rotar empeora* (ambos > RTN), y Fisher < random. El gate asumía que
-  rotar ayuda (modelo QuIP); aquí rotar con **cuantizador por-`max|col|` y bits uniformes**
-  perjudica porque dispersa pesos que estaban concentrados.
-- **Causa raíz (no es bug, es teoría incompleta):** `quantize_rotated` implementó la rotación
-  pero NO la **asignación de bits adaptativa por eigenvalor** que el formalismo §4 marca como
-  el ingrediente activo ($b_i \propto \lambda_i$, escala $\propto \lambda_i^{-1/2}$). Rotamos
-  a la base de Fisher y luego ignoramos Fisher al cuantizar. Eso desperdicia justo lo que
-  Fisher optimiza.
+- Fisher beats random in only 16/49 layers (33%) → **FAIL of the gate as defined**.
+- **BUT**: on average, *rotating makes it worse* (both > RTN), and Fisher < random. The gate
+  assumed rotation helps (the QuIP model); here, rotating with a **per-`max|col|` quantizer
+  and uniform bits** hurts because it disperses weights that were concentrated.
+- **Root cause (not a bug, an incomplete theory):** `quantize_rotated` implemented the rotation
+  but NOT the **adaptive per-eigenvalue bit allocation** that formalism §4 marks as the active
+  ingredient ($b_i \propto \lambda_i$, scale $\propto \lambda_i^{-1/2}$). We rotated into the
+  Fisher basis and then ignored Fisher when quantizing. That wastes exactly what Fisher
+  optimizes.
 
-**Veredicto:** A-G4 v1 no falsa NQP — falsa "rotación-Fisher + cuantizador ingenuo". El gate
-debe re-correrse con **escala derivada de λ_i** (A-G4 v2) antes de concluir nada sobre la
-hipótesis central.
+**Verdict:** A-G4 v1 does not falsify NQP — it falsifies "Fisher rotation + naive quantizer".
+The gate must be re-run with **scale derived from λ_i** (A-G4 v2) before concluding anything
+about the central hypothesis.
 
-### Resultado A-G4 v2 (2026-06-24) — FAIL fuerte, y revela el error de medición
+### A-G4 v2 result (2026-06-24) — strong FAIL, and reveals the measurement error
 
-| base | mean err L2 (4-bit) | gana en |
+| basis | mean L2 err (4-bit) | wins in |
 |---|---|---|
 | RTN (U=I) | 4.97e-2 | 7/49 |
 | Fisher-naive (U≠I, max-col) | 5.10e-2 | 11/49 |
 | Random (QuIP) | 5.27e-2 | 31/49 |
-| **NQP\*** (U≠I, escala λ) | **9.08e-2** | **0/49** (peor de todos) |
+| **NQP\*** (U≠I, λ scale) | **9.08e-2** | **0/49** (worst of all) |
 
-La escala-λ **duplicó** el error en vez de bajarlo. Diagnóstico definitivo:
+The λ-scale **doubled** the error instead of lowering it. Definitive diagnosis:
 
-> **El gate A-G4 mide error L2 de reconstrucción, pero NQP NO promete minimizar L2 —
-> promete minimizar el impacto en la LOSS (perplejidad).** La escala-λ por diseño
-> *sacrifica* L2 para proteger direcciones sensibles a la loss. Medir L2 está
-> estructuralmente sesgado contra la idea de NQP: RTN siempre gana porque RTN minimiza
-> exactamente lo que el gate mide. Es tautología, no evidencia.
+> **Gate A-G4 measures L2 reconstruction error, but NQP does NOT promise to minimize L2 —
+> it promises to minimize the impact on the LOSS (perplexity).** By design, the λ-scale
+> *sacrifices* L2 to protect loss-sensitive directions. Measuring L2 is structurally biased
+> against NQP's idea: RTN always wins because RTN minimizes exactly what the gate measures.
+> It is a tautology, not evidence.
 
-**Conclusión de la fase de error-L2:** ningún experimento basado en error L2 puede validar
-NQP. Toda comparación debe ser en **PPL / loss downstream**, donde proteger direcciones de
-alta curvatura puede pagar. El error L2 solo sirve como sanity de que la reconstrucción no
-está rota — no como métrica de mérito.
+**Conclusion of the L2-error phase:** no L2-error-based experiment can validate NQP. Every
+comparison must be in **PPL / downstream loss**, where protecting high-curvature directions
+can pay off. L2 error only serves as a sanity check that the reconstruction is not broken —
+not as a metric of merit.
 
-### Replanteo del Camino A (A v3)
-- Métrica de mérito: **ΔPPL**, no error L2.
-- Comparador honesto: **GPTQ** (que también optimiza impacto-en-loss vía Hessiana), no RTN.
-- Hipótesis afinada: la rotación de Fisher + protección de direcciones curvas debería batir
-  a GPTQ *en PPL a 3-4 bits*, aunque pierda en L2. Si tampoco gana en PPL, entonces la base
-  de Fisher de input-activations no aporta sobre la Hessiana de output que GPTQ ya usa, y el
-  valor de NQP (si existe) está en C (rate-distortion sobre eigenespectro), no en A.
+### Re-plan of Path A (A v3)
+- Merit metric: **ΔPPL**, not L2 error.
+- Honest comparator: **GPTQ** (which also optimizes loss impact via the Hessian), not RTN.
+- Refined hypothesis: Fisher rotation + protection of curved directions should beat GPTQ
+  *in PPL at 3-4 bits*, even if it loses in L2. If it does not win in PPL either, then the
+  Fisher basis of input activations adds nothing over the output Hessian GPTQ already uses,
+  and NQP's value (if any) lies in C (rate-distortion over the eigenspectrum), not in A.
 
-**Costo estimado:** ~3–4 sesiones. Diagonalización de bloques 768×768 es trivial en CPU.
-
----
-
-## CAMINO B — K-FAC (Kronecker-factored)
-
-**Precondición:** A-G4 pasó (la base de Fisher aporta sobre azar).
-
-**Objetivo:** hacer A escalable. El Fisher de bloque completo es $O(d^2)$ por capa;
-inviable a 7B+. K-FAC factoriza $F \approx A \otimes G$ (input-cov ⊗ output-grad-cov),
-reduciendo a dos eig pequeñas y $\hat{P} = U_A \otimes U_G$.
-
-**Comprobaciones (gates):**
-- **B-G1** — fidelidad: la base K-FAC reproduce ≥ 90% de la ganancia de A-G3 en GPT-2
-  (verificar que la aproximación Kronecker no destruye la señal).
-- **B-G2** — escala: correr en Llama-3 8B a 4 bits, $\text{PPL}_{NQP} \leq \text{PPL}_{GPTQ}$
-  (= EXP-002 del README).
-- **B-G3** — overhead: tiempo de preparar $\hat{P}$ < 2× el de GPTQ (RQ-3: trade-off
-  overhead vs calidad).
-
-**Salida:** si B pasa → NQP es un método de cuantización viable y competitivo → C.
-
-**Costo estimado:** ~6–8 sesiones (implementación K-FAC + acceso a GPU para Llama-8B).
+**Estimated cost:** ~3–4 sessions. Diagonalizing 768×768 blocks is trivial on CPU.
 
 ---
 
-## CAMINO C — Rate-distortion sobre el eigenespectro
+## PATH B — K-FAC (Kronecker-factored)
 
-**Precondición:** A+B dan señal empírica reproducible.
+**Precondition:** A-G4 passed (the Fisher basis adds over chance).
 
-**Objetivo:** la forma fuerte. No solo rotar, sino **asignar bits óptimamente** por
-eigenvalor vía rate-distortion: $b_i \propto \log \lambda_i$ (más bits donde la loss es
-más curva), y formalizar NQP-C1 como teorema con condiciones suficientes
+**Objective:** make A scalable. The full block Fisher is $O(d^2)$ per layer; infeasible at
+7B+. K-FAC factors $F \approx A \otimes G$ (input-cov ⊗ output-grad-cov), reducing it to two
+small eigendecompositions and $\hat{P} = U_A \otimes U_G$.
+
+**Checks (gates):**
+- **B-G1** — fidelity: the K-FAC basis reproduces ≥ 90% of A-G3's gain on GPT-2 (verify that
+  the Kronecker approximation does not destroy the signal).
+- **B-G2** — scale: run on Llama-3 8B at 4 bits, $\text{PPL}_{NQP} \leq \text{PPL}_{GPTQ}$
+  (= EXP-002 of the README).
+- **B-G3** — overhead: time to prepare $\hat{P}$ < 2× that of GPTQ (RQ-3: overhead vs quality
+  trade-off).
+
+**Outcome:** if B passes → NQP is a viable, competitive quantization method → C.
+
+**Estimated cost:** ~6–8 sessions (K-FAC implementation + GPU access for Llama-8B).
+
+---
+
+## PATH C — Rate-distortion over the eigenspectrum
+
+**Precondition:** A+B give reproducible empirical signal.
+
+**Objective:** the strong form. Not just rotate, but **allocate bits optimally** per
+eigenvalue via rate-distortion: $b_i \propto \log \lambda_i$ (more bits where the loss is
+more curved), and formalize NQP-C1 as a theorem with sufficient conditions
 ([operator_formalization.md:104](../theory/operator_formalization.md)).
 
-**Comprobaciones (gates):**
-- **C-G1** — teoría: derivar la asignación de bits óptima bajo presupuesto fijo y demostrar
-  cota $\varepsilon_{NQP} \leq \varepsilon_{std}$ bajo Fisher exacto.
-- **C-G2** — NQP-C2 (forma fuerte): test empírico de si NQP-4bit **supera FP32** en tareas
-  donde la calibración es representativa (= EXP-003, hipótesis del regularizador).
-- **C-G3** — paper: resultados reproducibles + comparación vs GPTQ/QuIP#/AWQ.
+**Checks (gates):**
+- **C-G1** — theory: derive the optimal bit allocation under a fixed budget and prove the
+  bound $\varepsilon_{NQP} \leq \varepsilon_{std}$ under exact Fisher.
+- **C-G2** — NQP-C2 (strong form): empirical test of whether NQP-4bit **beats FP32** on tasks
+  where the calibration is representative (= EXP-003, the regularizer hypothesis).
+- **C-G3** — paper: reproducible results + comparison vs GPTQ/QuIP#/AWQ.
 
-**Costo estimado:** indefinido — es el cuerpo del paper.
-
----
-
-## Decisión de "cuál camino explotar"
-
-**Veredicto de diseño:** explotar **A primero, en profundidad**, porque:
-
-1. Es el **único** que puede *falsar* NQP barato. A-G4 (Fisher vs rotación aleatoria) es la
-   pregunta científica central — si la base de Fisher no bate al azar, todo lo demás es
-   decoración. Ningún otro camino responde esto más rápido.
-2. B y C **heredan** toda su validez de A. Invertir en K-FAC o en la teoría rate-distortion
-   antes de saber si la rotación de Fisher aporta es construir sobre arena.
-3. A reutiliza ~70% del código actual (`fisher.py`): solo añade el bloque de
-   diagonalización + rotación. El diagonal ya hecho queda como ablación ($U=I$).
-
-**Anti-patrón a evitar:** saltar a B (K-FAC, "lo escalable") porque suena más impresionante.
-Si A no pasa A-G4 en GPT-2 (124M, minutos de cómputo), B en Llama-8B (horas de GPU) solo
-desperdiciará recursos confirmando lo mismo a mayor costo.
+**Estimated cost:** open-ended — it is the body of the paper.
 
 ---
 
-## Próxima acción concreta
+## Decision on "which path to exploit"
 
-Implementar `src/fisher_block.py` (Camino A) con:
-- `estimate_block_fisher(model, calib)` → $F$ por matriz de pesos.
-- `NQPBlockQuantizer` con rotación $\tilde W = WU$ / reconstrucción $\hat W = Q(\tilde W)U^T$.
-- Comparador A-G4: NQP-Fisher vs NQP-random-rotation vs GPTQ-baseline.
-- Gate de entrada: esperar veredicto del barrido de calibración (EXP-001) para confirmar
-  que el diagonal es plano antes de invertir en A.
+**Design verdict:** exploit **A first, in depth**, because:
+
+1. It is the **only** one that can *falsify* NQP cheaply. A-G4 (Fisher vs random rotation) is
+   the central scientific question — if the Fisher basis does not beat chance, everything else
+   is decoration. No other path answers this faster.
+2. B and C **inherit** all their validity from A. Investing in K-FAC or in rate-distortion
+   theory before knowing whether the Fisher rotation adds anything is building on sand.
+3. A reuses ~70% of the current code (`fisher.py`): it only adds the diagonalization +
+   rotation block. The diagonal already built remains as an ablation ($U=I$).
+
+**Anti-pattern to avoid:** jumping to B (K-FAC, "the scalable one") because it sounds more
+impressive. If A does not pass A-G4 on GPT-2 (124M, minutes of compute), B on Llama-8B (hours
+of GPU) will only waste resources confirming the same thing at higher cost.
+
+---
+
+## Next concrete action
+
+Implement `src/fisher_block.py` (Path A) with:
+- `estimate_block_fisher(model, calib)` → $F$ per weight matrix.
+- `NQPBlockQuantizer` with rotation $\tilde W = WU$ / reconstruction $\hat W = Q(\tilde W)U^T$.
+- A-G4 comparator: NQP-Fisher vs NQP-random-rotation vs GPTQ-baseline.
+- Entry gate: wait for the calibration-sweep verdict (EXP-001) to confirm that the diagonal is
+  flat before investing in A.

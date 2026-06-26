@@ -1,158 +1,158 @@
-# NQP — Formalización del Operador de Preparación de Estado
+# NQP — Formalization of the State Preparation Operator
 
-**Estado:** Borrador inicial · 2026-06-24
-**Autores:** Juan Pablo Chancay, Claude Sonnet 4.6
-**Proyecto:** Natural Quantization via State Preparation (NQP)
-
----
-
-## 1. Motivación
-
-La cuantización estándar de LLMs impone una rejilla discreta uniforme sobre un espacio de pesos
-continuo. Esto introduce ruido de cuantización porque la rejilla no respeta la geometría real
-de la distribución de pesos: algunos pesos críticos colapsan a bins incorrectos, mientras que
-bins de alta resolución se desperdician en regiones de baja varianza.
-
-**Intuición central (J.P. Chancay, 2026-06-24):** igual que en mecánica cuántica un sistema
-en superposición colapsa a un eigenvalor *del operador de medición*, los pesos de un modelo
-deberían colapsar a bins discretos *del operador natural del modelo* — no de una rejilla
-externa. La cuantización óptima es aquella en que la rejilla emerge de la geometría del modelo,
-no se le impone.
+**Status:** Initial draft · 2026-06-24
+**Authors:** Juan Pablo Chancay, Claude Sonnet 4.6
+**Project:** Natural Quantization via State Preparation (NQP)
 
 ---
 
-## 2. Definiciones base
+## 1. Motivation
 
-Sea $W \in \mathbb{R}^{d}$ el vector de pesos de una capa (o grupo de capas) de un LLM.
+Standard LLM quantization imposes a uniform discrete grid on a continuous weight space. This
+introduces quantization noise because the grid does not respect the real geometry of the weight
+distribution: some critical weights collapse to incorrect bins, while high-resolution bins are
+wasted in low-variance regions.
 
-**Cuantización estándar** aplica:
+**Central intuition (J.P. Chancay, 2026-06-24):** just as in quantum mechanics a system in
+superposition collapses to an eigenvalue *of the measurement operator*, a model's weights should
+collapse to discrete bins *of the model's natural operator* — not of an external grid. Optimal
+quantization is the one in which the grid emerges from the model's geometry rather than being
+imposed on it.
+
+---
+
+## 2. Base definitions
+
+Let $W \in \mathbb{R}^{d}$ be the weight vector of a layer (or group of layers) of an LLM.
+
+**Standard quantization** applies:
 
 $$Q_{\text{std}}(W) = s \cdot \text{round}\!\left(\frac{W}{s}\right) + z$$
 
-con $s$ (scale) y $z$ (zero-point) fijos por rango estadístico de $W$. El error es:
+with $s$ (scale) and $z$ (zero-point) fixed by the statistical range of $W$. The error is:
 
 $$\varepsilon_{\text{std}} = \|W - Q_{\text{std}}(W)\|^2$$
 
-**Objetivo NQP:** encontrar una transformación $T: \mathbb{R}^d \to \mathbb{R}^d$ tal que:
+**NQP goal:** find a transformation $T: \mathbb{R}^d \to \mathbb{R}^d$ such that:
 
 $$\varepsilon_{\text{NQP}} = \|W - T^{-1}(Q_{\text{std}}(T(W)))\|^2 \ll \varepsilon_{\text{std}}$$
 
-con $T$ invertible, eficientemente computable, y que preserve la capacidad inferencial del modelo.
+with $T$ invertible, efficiently computable, and preserving the model's inferential capacity.
 
 ---
 
-## 3. El operador de preparación $\hat{P}$
+## 3. The preparation operator $\hat{P}$
 
-**Definición 3.1** — *Operador de preparación natural*
+**Definition 3.1** — *Natural preparation operator*
 
-Sea $\mathcal{H}_W$ el espacio de pesos con producto interno definido por la métrica de Fisher
-del modelo:
+Let $\mathcal{H}_W$ be the weight space with an inner product defined by the model's Fisher
+metric:
 
 $$\langle u, v \rangle_F = \mathbb{E}_{x \sim \mathcal{D}}\left[u^T \nabla^2_W \mathcal{L}(x; W) \, v\right]$$
 
-donde $\mathcal{D}$ es la distribución de calibración y $\mathcal{L}$ es la loss del modelo.
+where $\mathcal{D}$ is the calibration distribution and $\mathcal{L}$ is the model's loss.
 
-El operador de preparación $\hat{P}$ es la transformación lineal ortogonal (o cuasi-ortogonal)
-que diagonaliza la métrica de Fisher local:
+The preparation operator $\hat{P}$ is the orthogonal (or quasi-orthogonal) linear transformation
+that diagonalizes the local Fisher metric:
 
-$$\hat{P} = U \quad \text{tal que} \quad U^T F U = \Lambda$$
+$$\hat{P} = U \quad \text{such that} \quad U^T F U = \Lambda$$
 
-donde $F$ es la matriz de Fisher (o su aproximación de bloque) y $\Lambda$ es diagonal.
+where $F$ is the Fisher matrix (or its block approximation) and $\Lambda$ is diagonal.
 
-**Interpretación:** en la base de $\hat{P}$, las direcciones del espacio de pesos son
-*independientes bajo la loss* — análogo a la base de eigenvectores del Hamiltoniano en QM,
-donde cada dirección tiene energía (impacto) definido.
+**Interpretation:** in the basis of $\hat{P}$, the weight-space directions are *independent under
+the loss* — analogous to the eigenvector basis of the Hamiltonian in QM, where each direction has
+a defined energy (impact).
 
 ---
 
-## 4. Cuantización en la base natural
+## 4. Quantization in the natural basis
 
-Tras aplicar $\hat{P}$:
+After applying $\hat{P}$:
 
 $$\tilde{W} = \hat{P} W$$
 
-cada componente $\tilde{W}_i$ tiene varianza proporcional a $\lambda_i^{-1}$ (inversa del
-eigenvalor de Fisher correspondiente). Esto permite:
+each component $\tilde{W}_i$ has variance proportional to $\lambda_i^{-1}$ (the inverse of the
+corresponding Fisher eigenvalue). This enables:
 
-1. **Asignación de bits adaptativa:** componentes con $\lambda_i$ grande (alta curvatura de
-   loss → alta sensibilidad) reciben más bits; componentes con $\lambda_i$ pequeño reciben menos.
+1. **Adaptive bit allocation:** components with large $\lambda_i$ (high loss curvature → high
+   sensitivity) receive more bits; components with small $\lambda_i$ receive fewer.
 
-2. **Rejilla no uniforme:** los bins discretos se distribuyen según la varianza de $\tilde{W}_i$,
-   no uniformemente.
+2. **Non-uniform grid:** the discrete bins are distributed according to the variance of
+   $\tilde{W}_i$, not uniformly.
 
-3. **Cuantización:** $\hat{W}_i = Q_i(\tilde{W}_i)$ con $Q_i$ específico por componente.
+3. **Quantization:** $\hat{W}_i = Q_i(\tilde{W}_i)$ with $Q_i$ specific to each component.
 
-4. **Reconstrucción:** $\hat{W} = \hat{P}^{-1} \hat{\tilde{W}}$
+4. **Reconstruction:** $\hat{W} = \hat{P}^{-1} \hat{\tilde{W}}$
 
 ---
 
-## 5. Análogo cuántico explícito
+## 5. Explicit quantum analog
 
-| Mecánica cuántica | NQP |
+| Quantum mechanics | NQP |
 |---|---|
-| Estado pre-medición $\|\psi\rangle$ | Pesos FP32 $W$ |
-| Superposición en base computacional | Distribución continua en $\mathbb{R}^d$ |
-| Hamiltoniano $\hat{H}$ | Métrica de Fisher $F$ |
-| Cambio a base de eigenvectores de $\hat{H}$ | Transformación $\hat{P} = U$ (diagonalización de $F$) |
-| Eigenvalores de energía $E_n$ | Eigenvalores de Fisher $\lambda_i$ (curvatura de loss) |
-| Colapso al eigenvalor más cercano | Cuantización $Q_i$ en la base natural |
-| "Campo EM" que prepara el estado | Fine-tuning / calibración que ajusta $W$ hacia los bins |
-| Error de medición mínimo en base propia | Error de cuantización mínimo en base de Fisher |
+| Pre-measurement state $\|\psi\rangle$ | FP32 weights $W$ |
+| Superposition in the computational basis | Continuous distribution in $\mathbb{R}^d$ |
+| Hamiltonian $\hat{H}$ | Fisher metric $F$ |
+| Change to the eigenvector basis of $\hat{H}$ | Transformation $\hat{P} = U$ (diagonalization of $F$) |
+| Energy eigenvalues $E_n$ | Fisher eigenvalues $\lambda_i$ (loss curvature) |
+| Collapse to the nearest eigenvalue | Quantization $Q_i$ in the natural basis |
+| "EM field" that prepares the state | Fine-tuning / calibration that nudges $W$ toward the bins |
+| Minimal measurement error in the eigenbasis | Minimal quantization error in the Fisher basis |
 
 ---
 
-## 6. Propiedad objetivo (conjetura NQP-C1)
+## 6. Target property (conjecture NQP-C1)
 
-**Conjetura:** para cualquier modelo $M$ con pesos $W$ y cualquier presupuesto de bits $b$,
-existe un operador de preparación $\hat{P}$ tal que:
+**Conjecture:** for any model $M$ with weights $W$ and any bit budget $b$, there exists a
+preparation operator $\hat{P}$ such that:
 
 $$\text{PPL}(M_{\hat{P},b}) \leq \text{PPL}(M_{\text{std},b}) + \delta$$
 
-con $\delta \to 0$ cuando el número de muestras de calibración $n \to \infty$, donde
-$\text{PPL}$ es la perplejidad del modelo cuantizado sobre una distribución de evaluación
-y $M_{\hat{P},b}$ es el modelo cuantizado via NQP con $b$ bits.
+with $\delta \to 0$ as the number of calibration samples $n \to \infty$, where $\text{PPL}$ is the
+perplexity of the quantized model over an evaluation distribution and $M_{\hat{P},b}$ is the model
+quantized via NQP with $b$ bits.
 
-**Forma más fuerte (NQP-C2):** $\hat{P}$ óptimo lleva $\delta < 0$ — es decir, la cuantización
-en base natural con $b$ bits supera a FP32 sin cuantización en tareas donde la distribución
-de calibración es representativa, porque $\hat{P}$ actúa como regularizador natural.
+**Stronger form (NQP-C2):** the optimal $\hat{P}$ makes $\delta < 0$ — that is, quantization in
+the natural basis with $b$ bits beats unquantized FP32 on tasks where the calibration distribution
+is representative, because $\hat{P}$ acts as a natural regularizer.
 
 ---
 
-## 7. Conexión con trabajo existente
+## 7. Connection to existing work
 
-| Método | Relación con NQP |
+| Method | Relation to NQP |
 |---|---|
-| GPTQ | Minimiza error de cuantización por capa usando Hessiana de outputs — aproximación de bloque de $F$ |
-| QuIP / QuIP# | Aplica rotación ortogonal aleatoria — caso especial de $\hat{P}$ sin estructura de Fisher |
-| AWQ | Pondera el error por activaciones — aproximación diagonal de $\hat{P}$ |
-| SmoothQuant | Rebalanceo por canal — caso 1D de la transformación |
-| **NQP** | Generalización: $\hat{P}$ óptimo dado $F$, con asignación de bits adaptativa por eigenvalor |
+| GPTQ | Minimizes per-layer quantization error using the output Hessian — a block approximation of $F$ |
+| QuIP / QuIP# | Applies a random orthogonal rotation — a special case of $\hat{P}$ with no Fisher structure |
+| AWQ | Weights the error by activations — a diagonal approximation of $\hat{P}$ |
+| SmoothQuant | Per-channel rebalancing — a 1D case of the transformation |
+| **NQP** | Generalization: optimal $\hat{P}$ given $F$, with adaptive per-eigenvalue bit allocation |
 
-La novedad de NQP sobre QuIP es que la rotación **no es aleatoria** — es la base de Fisher
-del modelo, que tiene significado en términos de sensibilidad de la loss.
-
----
-
-## 8. Preguntas abiertas
-
-1. ¿Es $F$ computable eficientemente para modelos de escala LLM (7B–70B)?
-   → Aproximaciones: K-FAC, diagonal, bloque por capa.
-
-2. ¿La conjetura NQP-C2 (forma fuerte) se cumple en la práctica?
-   → Experimento: comparar PPL de NQP vs GPTQ vs QuIP en Llama-3 8B a 4 bits.
-
-3. ¿Cuál es la complejidad de computar $\hat{P}$ vs el ahorro en calidad de inferencia?
-   → Trade-off de overhead de preparación vs ganancia de calidad.
-
-4. ¿Existe una noción de "principio de incertidumbre" en NQP?
-   → Si $\hat{P}$ diagonaliza $F$, ¿hay direcciones donde precisión de pesos y
-   precisión de activaciones no pueden optimizarse simultáneamente?
+NQP's novelty over QuIP is that the rotation **is not random** — it is the model's Fisher basis,
+which has meaning in terms of loss sensitivity.
 
 ---
 
-## 9. Próximos pasos
+## 8. Open questions
 
-- [ ] Implementar estimación de Fisher diagonal para un transformer pequeño (GPT-2)
-- [ ] Comparar $\varepsilon_{\text{NQP}}$ vs $\varepsilon_{\text{std}}$ en distribución controlada
-- [ ] Verificar conjetura NQP-C1 empíricamente
-- [ ] Formalizar NQP-C2 como teorema con condiciones suficientes
+1. Is $F$ efficiently computable for LLM-scale models (7B–70B)?
+   → Approximations: K-FAC, diagonal, per-layer block.
+
+2. Does conjecture NQP-C2 (strong form) hold in practice?
+   → Experiment: compare the PPL of NQP vs GPTQ vs QuIP on Llama-3 8B at 4 bits.
+
+3. What is the complexity of computing $\hat{P}$ vs the saving in inference quality?
+   → Preparation-overhead vs quality-gain trade-off.
+
+4. Is there a notion of an "uncertainty principle" in NQP?
+   → If $\hat{P}$ diagonalizes $F$, are there directions where weight precision and activation
+   precision cannot be optimized simultaneously?
+
+---
+
+## 9. Next steps
+
+- [ ] Implement diagonal Fisher estimation for a small transformer (GPT-2)
+- [ ] Compare $\varepsilon_{\text{NQP}}$ vs $\varepsilon_{\text{std}}$ on a controlled distribution
+- [ ] Verify conjecture NQP-C1 empirically
+- [ ] Formalize NQP-C2 as a theorem with sufficient conditions

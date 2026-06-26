@@ -1,463 +1,469 @@
-# Mapa Matemático: Mecánica Cuántica ↔ Transformers
+# Mathematical Map: Quantum Mechanics ↔ Transformers
 
-**Estado:** Exploración inicial · 2026-06-25
-**Autores:** Juan Pablo Chancay, Claude Opus 4.8
-**Origen:** línea sucesora de NQP (en standby). NQP falló por partir de UNA analogía forzada
-(cuantización = medición). Aquí invertimos el enfoque: mapear sistemáticamente la maquinaria
-matemática compartida, identificar gaps donde MC tiene estructura que los transformers no
-explotan, y filtrar por **viabilidad falsable**, no por elegancia.
-
----
-
-## 0. Disciplina anti-NQP
-
-Cada candidato debe pasar tres filtros antes de invertir cómputo:
-
-1. **Coincidencia literal, no metafórica:** ¿MC y transformers usan *el mismo objeto
-   matemático*, o solo "se parecen"? (NQP confundió "Fisher se parece al Hamiltoniano" con
-   "Fisher es el Hamiltoniano". Falló.)
-2. **Gap real:** ¿la herramienta de MC hace algo que la formulación actual del transformer
-   NO hace ya bajo otro nombre? (NQP-C1 colapsó a GPTQ+AWQ+QuIP porque no aportaba nada nuevo.)
-3. **Falsable y medible:** ¿hay un experimento barato que pueda *refutar* la utilidad en
-   GPT-2 antes de escalar? (NQP-U1b parecía soportada hasta la correlación parcial.)
+**Status:** Initial exploration · 2026-06-25
+**Authors:** Juan Pablo Chancay, Claude Opus 4.8
+**Origin:** successor line to NQP (on standby). NQP failed by starting from ONE forced analogy
+(quantization = measurement). Here we invert the approach: systematically map the shared
+mathematical machinery, identify gaps where QM has structure that transformers do not exploit,
+and filter by **falsifiable viability**, not by elegance.
 
 ---
 
-## 1. Coincidencias matemáticas LITERALES
+## 0. Anti-NQP discipline
 
-Objetos que ambos campos usan de forma idéntica (no análoga):
+Each candidate must pass three filters before investing compute:
 
-| Objeto | En MC | En transformers | ¿Literal? |
+1. **Literal, not metaphorical, match:** do QM and transformers use *the same mathematical
+   object*, or do they only "look alike"? (NQP confused "Fisher looks like the Hamiltonian" with
+   "Fisher is the Hamiltonian". It failed.)
+2. **Real gap:** does the QM tool do something the transformer's current formulation does NOT
+   already do under another name? (NQP-C1 collapsed onto GPTQ+AWQ+QuIP because it added nothing
+   new.)
+3. **Falsifiable and measurable:** is there a cheap experiment that can *refute* the usefulness on
+   GPT-2 before scaling? (NQP-U1b looked supported until the partial correlation.)
+
+---
+
+## 1. LITERAL mathematical matches
+
+Objects both fields use identically (not analogously):
+
+| Object | In QM | In transformers | Literal? |
 |---|---|---|---|
-| **Producto interno / proyección** | ⟨ψ\|φ⟩ amplitud | QᵀK score de atención | 🟢 mismo álgebra |
-| **Softmax / distribución de Gibbs** | e^{−E/kT}/Z (Boltzmann) | softmax(QKᵀ/√d) | 🟢 misma forma, T↔√d |
-| **Normalización L2 / estado** | \|ψ\|=1 (estado normalizado) | LayerNorm, RMSNorm | 🟡 parcial (L2 vs varianza) |
-| **Operador lineal / matriz densa** | Â observable hermitiano | W proj (no hermitiana) | 🟡 forma sí, hermiticidad no |
-| **Superposición / combinación lineal** | Σ cᵢ\|i⟩ | Σ attn_i · vᵢ (mezcla de values) | 🟢 misma estructura convexa |
-| **Producto tensorial / composición** | H_A ⊗ H_B sistemas compuestos | multi-head (concat espacios) | 🟡 concat ≠ ⊗ pleno |
-| **Matriz densidad ρ** | ρ=Σ pᵢ\|ψᵢ⟩⟨ψᵢ\| estado mixto | — (no usado explícitamente) | ⬜ GAP candidato |
+| **Inner product / projection** | ⟨ψ\|φ⟩ amplitude | QᵀK attention score | 🟢 same algebra |
+| **Softmax / Gibbs distribution** | e^{−E/kT}/Z (Boltzmann) | softmax(QKᵀ/√d) | 🟢 same form, T↔√d |
+| **L2 normalization / state** | \|ψ\|=1 (normalized state) | LayerNorm, RMSNorm | 🟡 partial (L2 vs variance) |
+| **Linear operator / dense matrix** | Â Hermitian observable | W proj (non-Hermitian) | 🟡 form yes, Hermiticity no |
+| **Superposition / linear combination** | Σ cᵢ\|i⟩ | Σ attn_i · vᵢ (mixture of values) | 🟢 same convex structure |
+| **Tensor product / composition** | H_A ⊗ H_B composite systems | multi-head (concat spaces) | 🟡 concat ≠ full ⊗ |
+| **Density matrix ρ** | ρ=Σ pᵢ\|ψᵢ⟩⟨ψᵢ\| mixed state | — (not used explicitly) | ⬜ candidate GAP |
 
-**Observación clave:** la atención ES, formalmente, un valor esperado bajo una distribución
-de Boltzmann sobre estados (los values), con la energía dada por −QᵀK/√d. Esto NO es metáfora:
-es la misma fórmula. Es el ancla literal más fuerte y el punto de partida natural.
-
----
-
-## 2. GAPS — estructura que MC tiene y los transformers NO explotan
-
-Ordenados por viabilidad estimada (filtro §0), no por atractivo conceptual.
-
-### GAP-A — Matriz densidad / estados mixtos (atención como ρ)
-La atención produce una mezcla convexa de values: `out = Σ_i a_i v_i`. En MC eso es
-exactamente un **estado mixto** descrito por una matriz densidad ρ. Los transformers tiran
-esa estructura: colapsan la mezcla a su media (el vector de salida) y pierden la *coherencia*
-(los términos cruzados ⟨v_i\|v_j⟩). 
-- **Gap:** la salida de atención retiene solo `Tr(ρ V)` (la media) y descarta toda la
-  matriz ρ = Σ a_i \|v_i⟩⟨v_i\|, que codifica la *incertidumbre/dispersión* de la mezcla.
-- **Hipótesis útil:** propagar una estadística de segundo orden (varianza de la mezcla, o
-  la "pureza" Tr(ρ²)) podría dar a capas superiores señal de *cuán confiada/dispersa* fue
-  cada decisión de atención — barato y posiblemente útil para calibración/incertidumbre.
-- **Falsable barato:** sí. Calcular Tr(ρ²) por cabeza en GPT-2 y ver si correlaciona con
-  algo (entropía de predicción, errores). 
-
-### GAP-B — Evolución unitaria / reversibilidad
-En MC la evolución sin medición es **unitaria** (preserva norma e información; es reversible).
-Los bloques de transformer NO son unitarios (LayerNorm, ReLU/GeLU, residuales los hacen
-contractivos/expansivos e irreversibles).
-- **Gap:** redes con capas unitarias/ortogonales tienen gradientes que no explotan ni se
-  desvanecen (norma preservada) — relevante para estabilidad en profundidad extrema.
-- **Estado del arte:** ya existe trabajo (unitary RNNs, orthogonal init, parametrizaciones
-  de Stiefel). NO es virgen. Riesgo de colapsar a literatura existente (como NQP→GPTQ).
-- **Falsable:** sí, pero el gap real sobre lo existente es dudoso. Prioridad media-baja.
-
-### GAP-C — Entrelazamiento / no-factorizabilidad como métrica
-El **entrelazamiento** mide cuánto un estado compuesto NO factoriza: si \|ψ_AB⟩ ≠ \|ψ_A⟩⊗\|ψ_B⟩.
-La entropía de entrelazamiento (von Neumann de la ρ reducida) cuantifica correlación
-"genuinamente conjunta".
-- **Gap:** no hay una métrica estándar en transformers de cuánto la representación de un
-  token está "entrelazada" con otra (más allá del attention weight crudo). La entropía de la
-  matriz densidad reducida daría una medida basada en principios.
-- **Hipótesis útil:** podría ser una herramienta de *interpretabilidad* (qué tokens forman
-  unidades semánticas inseparables) más que de rendimiento.
-- **Falsable barato:** sí, medible en activaciones de GPT-2.
-
-### GAP-D — Formalismo de fase / amplitudes complejas
-MC vive en ℂ: las amplitudes tienen **fase**, y la interferencia (constructiva/destructiva)
-es el mecanismo central. Los transformers son puramente reales — no hay interferencia.
-- **Gap:** la atención solo *suma* (interferencia constructiva siempre). No puede *cancelar*
-  contribuciones vía fase opuesta. Un mecanismo de atención con valores complejos podría
-  representar "este token contradice a aquel" de forma nativa.
-- **Estado del arte:** existen complex/phase-aware transformers, resultados mixtos.
-- **Falsable:** medio (requiere modificar arquitectura y reentrenar — caro en este setup).
-
-### GAP-E — Principio variacional / energía libre
-MC y mecánica estadística minimizan **energía libre** F = E − TS (balance energía/entropía).
-La inferencia en transformers no tiene un funcional de energía explícito que se minimice en
-el forward pass.
-- **Gap/conexión:** los Hopfield networks modernos (Ramsauer et al.) ya mostraron que la
-  atención ES la actualización de un modelo de energía tipo Hopfield. Esto vincula atención
-  con un paisaje de energía — y MC/estadística tienen herramientas ricas ahí (temperatura,
-  transiciones de fase, recocido).
-- **Hipótesis útil:** ¿control de "temperatura" dinámico en atención (annealing) mejora
-  razonamiento multi-paso? Conecta con el √d como temperatura inversa (§1).
-- **Falsable barato:** SÍ — solo modifica el escalado de atención en inferencia, sin
-  reentrenar. Alto valor/costo.
+**Key observation:** attention IS, formally, an expected value under a Boltzmann distribution over
+states (the values), with the energy given by −QᵀK/√d. This is NOT a metaphor: it is the same
+formula. It is the strongest literal anchor and the natural starting point.
 
 ---
 
-### GAP-F — Energía libre de Helmholtz (J.P. Chancay, 2026-06-25)
-Con $A_i = e^{\beta s_i}/Z$, $s_i = q\cdot k_i/\sqrt{d}$, $\beta = $ temperatura inversa, la
-cantidad $F = -\tfrac{1}{\beta}\log Z$ **es** la energía libre de Helmholtz. La atención
-computa $Z$ pero nunca usa $F$ ni sus derivadas.
-- **Gap:** en física estadística las transiciones de fase se detectan en las *derivadas* de
-  $F$ (capacidad calorífica, susceptibilidad). Los transformers ignoran toda esa estructura.
-- **Hipótesis:** distintos tipos de cabeza (sintácticas / recuperación de hechos / razonamiento)
-  podrían operar en regímenes termodinámicos distintos, algunas cerca de un punto crítico.
-- **Falsable barato:** sí — variar $\beta$ en inferencia, medir PPL/entropía/estabilidad,
-  buscar picos en $C = \partial\langle E\rangle/\partial T$ y $\chi = \partial\langle A\rangle/\partial T$.
+## 2. GAPS — structure QM has that transformers do NOT exploit
 
-### GAP-G — Información mutua entre cabezas (J.P. Chancay)
-Se mide attention entropy y rollout, pero casi nadie mide $I(H_i; H_j)$ entre cabezas. En
-mecánica estadística, **correlaciones de largo alcance = indicador de criticidad**.
-- **Hipótesis:** cabezas importantes podrían exhibir alta correlación / sincronización en
-  ciertos tokens. Permitiría pruning y compresión SIN reentrenar.
-- **Falsable barato:** sí (solo medir activaciones).
+Ordered by estimated viability (filter §0), not by conceptual appeal.
 
-### GAP-H — Entropía de von Neumann (extensión de GAP-A, J.P. Chancay)
-La pureza $\mathrm{Tr}(\rho^2)$ es solo un momento de 2º orden. La entropía de von Neumann
-$S(\rho) = -\mathrm{Tr}(\rho\log\rho)$ contiene mucha más información.
-- **Hipótesis:** al alucinar / estar inseguro / enfrentar OOD, $S(\rho)$ sube y la pureza
-  baja → **estimador de incertidumbre prácticamente gratis**.
-- **Falsable barato:** sí.
+### GAP-A — Density matrix / mixed states (attention as ρ)
+Attention produces a convex mixture of values: `out = Σ_i a_i v_i`. In QM that is exactly a
+**mixed state** described by a density matrix ρ. Transformers throw away that structure: they
+collapse the mixture to its mean (the output vector) and lose the *coherence* (the cross terms
+⟨v_i\|v_j⟩).
+- **Gap:** the attention output retains only `Tr(ρ V)` (the mean) and discards the whole matrix
+  ρ = Σ a_i \|v_i⟩⟨v_i\|, which encodes the *uncertainty/spread* of the mixture.
+- **Useful hypothesis:** propagating a second-order statistic (variance of the mixture, or the
+  "purity" Tr(ρ²)) could give upper layers a signal of *how confident/dispersed* each attention
+  decision was — cheap and possibly useful for calibration/uncertainty.
+- **Cheaply falsifiable:** yes. Compute Tr(ρ²) per head in GPT-2 and see if it correlates with
+  anything (prediction entropy, errors).
 
-### GAP-I — Grupo de Renormalización (RG) (J.P. Chancay) — alto potencial, más teórico
-Un transformer es una sucesión de mezclas/proyecciones/compresiones $x_l \to x_{l+1}$ que
-elimina grados de libertad irrelevantes — exactamente el **coarse-graining del RG de Wilson**.
-- **Preguntas:** ¿las capas implementan coarse-graining? ¿hay puntos fijos? ¿clases de
-  universalidad entre modelos? Podría explicar las leyes de escala y la profundidad óptima.
-- **Falsable:** medio-caro (requiere análisis multi-capa/multi-modelo), Fase 3.
+### GAP-B — Unitary evolution / reversibility
+In QM, evolution without measurement is **unitary** (preserves norm and information; reversible).
+Transformer blocks are NOT unitary (LayerNorm, ReLU/GeLU, residuals make them
+contractive/expansive and irreversible).
+- **Gap:** networks with unitary/orthogonal layers have gradients that neither explode nor vanish
+  (norm preserved) — relevant for stability at extreme depth.
+- **State of the art:** prior work exists (unitary RNNs, orthogonal init, Stiefel
+  parametrizations). It is NOT virgin territory. Risk of collapsing onto existing literature (like
+  NQP→GPTQ).
+- **Falsifiable:** yes, but the real gap over existing work is doubtful. Medium-low priority.
 
-### GAP-J — Geometría de información (J.P. Chancay)
-La distribución de atención es una distribución estadística → tiene métrica de Fisher,
-curvatura, geodésicas.
-- **Hipótesis:** los errores se concentran en regiones de alta curvatura → atención adaptativa
-  / temperaturas locales / routing, sin tocar el entrenamiento. (Ojo: NQP ya tropezó con
-  Fisher; aquí es Fisher de la *distribución de atención*, objeto distinto y mejor definido.)
+### GAP-C — Entanglement / non-factorizability as a metric
+**Entanglement** measures how much a composite state does NOT factor: whether
+\|ψ_AB⟩ ≠ \|ψ_A⟩⊗\|ψ_B⟩. The entanglement entropy (von Neumann of the reduced ρ) quantifies
+"genuinely joint" correlation.
+- **Gap:** there is no standard metric in transformers of how much one token's representation is
+  "entangled" with another's (beyond the raw attention weight). The entropy of the reduced density
+  matrix would give a principled measure.
+- **Useful hypothesis:** it could be an *interpretability* tool (which tokens form inseparable
+  semantic units) more than a performance one.
+- **Cheaply falsifiable:** yes, measurable on GPT-2 activations.
 
-### GAP-K — Capacidad calorífica como detector de régimen cognitivo (J.P. Chancay)
-$C = \beta^2(\langle E^2\rangle - \langle E\rangle^2)$. En física, picos de $C$ ⇒ transición
-de fase. En LLMs podrían marcar cambios de régimen: recuperación de memoria vs razonamiento
-multi-hop vs generación creativa. **Muy poco explorado.**
-- **Falsable barato:** sí — $C$ es la varianza de la energía, computable de los logits de
-  atención que ya existen.
+### GAP-D — Phase formalism / complex amplitudes
+QM lives in ℂ: amplitudes have a **phase**, and interference (constructive/destructive) is the
+central mechanism. Transformers are purely real — there is no interference.
+- **Gap:** attention only *adds* (always constructive interference). It cannot *cancel*
+  contributions via opposite phase. A complex-valued attention mechanism could natively represent
+  "this token contradicts that one".
+- **State of the art:** complex/phase-aware transformers exist, mixed results.
+- **Falsifiable:** medium (requires modifying the architecture and retraining — expensive in this
+  setup).
+
+### GAP-E — Variational principle / free energy
+QM and statistical mechanics minimize **free energy** F = E − TS (energy/entropy balance).
+Inference in transformers has no explicit energy functional minimized in the forward pass.
+- **Gap/connection:** modern Hopfield networks (Ramsauer et al.) already showed that attention IS
+  the update of a Hopfield-type energy model. This links attention to an energy landscape — and
+  QM/statistics have rich tools there (temperature, phase transitions, annealing).
+- **Useful hypothesis:** does dynamic "temperature" control in attention (annealing) improve
+  multi-step reasoning? Connects with the √d as inverse temperature (§1).
+- **Cheaply falsifiable:** YES — it only modifies the attention scaling at inference, without
+  retraining. High value/cost ratio.
 
 ---
 
-## 3. Ranking de viabilidad (candidatos a explorar)
+### GAP-F — Helmholtz free energy (J.P. Chancay, 2026-06-25)
+With $A_i = e^{\beta s_i}/Z$, $s_i = q\cdot k_i/\sqrt{d}$, $\beta = $ inverse temperature, the
+quantity $F = -\tfrac{1}{\beta}\log Z$ **is** the Helmholtz free energy. Attention computes $Z$
+but never uses $F$ or its derivatives.
+- **Gap:** in statistical physics, phase transitions are detected in the *derivatives* of $F$
+  (heat capacity, susceptibility). Transformers ignore all that structure.
+- **Hypothesis:** different head types (syntactic / fact-retrieval / reasoning) could operate in
+  different thermodynamic regimes, some near a critical point.
+- **Cheaply falsifiable:** yes — vary $\beta$ at inference, measure PPL/entropy/stability, look for
+  peaks in $C = \partial\langle E\rangle/\partial T$ and $\chi = \partial\langle A\rangle/\partial T$.
 
-Insight unificador (J.P. Chancay): **toda la termodinámica deriva de la misma $Z$ que la
-atención ya computa.** $F$, $\langle E\rangle$, $C$, $\chi$, $S(\rho)$ son funciones de los
-mismos logits de atención — medirlas es casi gratis y no requiere reentrenar. Esto eleva todo
-el bloque termodinámico (E/F/H/K) a prioridad ALTA conjunta.
+### GAP-G — Mutual information between heads (J.P. Chancay)
+Attention entropy and rollout are measured, but almost no one measures $I(H_i; H_j)$ between
+heads. In statistical mechanics, **long-range correlations = an indicator of criticality**.
+- **Hypothesis:** important heads could exhibit high correlation / synchronization on certain
+  tokens. This would allow pruning and compression WITHOUT retraining.
+- **Cheaply falsifiable:** yes (only measuring activations).
 
-| Gap | Coincidencia literal | Gap real vs SOTA | Falsable barato | Fase |
+### GAP-H — von Neumann entropy (extension of GAP-A, J.P. Chancay)
+Purity $\mathrm{Tr}(\rho^2)$ is just a 2nd-order moment. The von Neumann entropy
+$S(\rho) = -\mathrm{Tr}(\rho\log\rho)$ contains much more information.
+- **Hypothesis:** when hallucinating / being uncertain / facing OOD, $S(\rho)$ rises and purity
+  drops → a **practically free uncertainty estimator**.
+- **Cheaply falsifiable:** yes.
+
+### GAP-I — Renormalization Group (RG) (J.P. Chancay) — high potential, more theoretical
+A transformer is a sequence of mixtures/projections/compressions $x_l \to x_{l+1}$ that removes
+irrelevant degrees of freedom — exactly Wilson's RG **coarse-graining**.
+- **Questions:** do the layers implement coarse-graining? are there fixed points? universality
+  classes between models? It could explain scaling laws and optimal depth.
+- **Falsifiable:** medium-expensive (requires multi-layer/multi-model analysis), Phase 3.
+
+### GAP-J — Information geometry (J.P. Chancay)
+The attention distribution is a statistical distribution → it has a Fisher metric, curvature,
+geodesics.
+- **Hypothesis:** errors concentrate in high-curvature regions → adaptive attention / local
+  temperatures / routing, without touching training. (Caution: NQP already tripped on Fisher;
+  here it is the Fisher of the *attention distribution*, a different and better-defined object.)
+
+### GAP-K — Heat capacity as a detector of cognitive regime (J.P. Chancay)
+$C = \beta^2(\langle E^2\rangle - \langle E\rangle^2)$. In physics, peaks of $C$ ⇒ a phase
+transition. In LLMs they could mark regime changes: memory retrieval vs multi-hop reasoning vs
+creative generation. **Very little explored.**
+- **Cheaply falsifiable:** yes — $C$ is the variance of the energy, computable from the attention
+  logits that already exist.
+
+---
+
+## 3. Viability ranking (candidates to explore)
+
+Unifying insight (J.P. Chancay): **all the thermodynamics derive from the same $Z$ that attention
+already computes.** $F$, $\langle E\rangle$, $C$, $\chi$, $S(\rho)$ are functions of the same
+attention logits — measuring them is nearly free and requires no retraining. This raises the whole
+thermodynamic block (E/F/H/K) to joint HIGH priority.
+
+| Gap | Literal match | Real gap vs SOTA | Cheaply falsifiable | Phase |
 |---|---|---|---|---|
-| **GAP-E** (temperatura) | 🟢 softmax=Boltzmann | 🟡 Hopfield conecta | 🟢 sin reentrenar | **1** |
-| **GAP-A** (pureza ρ) | 🟢 mezcla=ρ | 🟢 no se usa | 🟢 solo medir | **1** |
-| **GAP-H** (von Neumann S) | 🟢 mezcla=ρ | 🟢 no se usa | 🟢 solo medir | **1** |
-| **GAP-K** (capacidad calorífica) | 🟢 C=var(E) | 🟢 inexplorado | 🟢 solo medir | **1** |
-| **GAP-F** (energía libre) | 🟢 F=−logZ/β | 🟢 derivadas sin uso | 🟢 solo medir | 2 |
-| **GAP-G** (info mutua cabezas) | 🟡 medio | 🟢 poco medido | 🟢 solo medir | 2 |
-| **GAP-I** (renormalización) | 🟡 coarse-grain | 🟢 explica scaling | 🔴 multi-capa/modelo | 3 |
-| **GAP-J** (geom. información) | 🟡 medio | 🟡 (NQP tropezó) | 🟡 | 3 |
-| GAP-C (entrelazamiento) | 🟡 | 🟢 | 🟢 | 2 |
-| GAP-D (fase compleja) | 🟡 | 🟡 existe | 🔴 reentrenar | baja |
-| GAP-B (unitariedad) | 🟡 | 🔴 mucho SOTA | 🟡 | baja |
+| **GAP-E** (temperature) | 🟢 softmax=Boltzmann | 🟡 Hopfield connects | 🟢 no retraining | **1** |
+| **GAP-A** (purity ρ) | 🟢 mixture=ρ | 🟢 not used | 🟢 measure only | **1** |
+| **GAP-H** (von Neumann S) | 🟢 mixture=ρ | 🟢 not used | 🟢 measure only | **1** |
+| **GAP-K** (heat capacity) | 🟢 C=var(E) | 🟢 unexplored | 🟢 measure only | **1** |
+| **GAP-F** (free energy) | 🟢 F=−logZ/β | 🟢 derivatives unused | 🟢 measure only | 2 |
+| **GAP-G** (head mutual info) | 🟡 medium | 🟢 rarely measured | 🟢 measure only | 2 |
+| **GAP-I** (renormalization) | 🟡 coarse-grain | 🟢 explains scaling | 🔴 multi-layer/model | 3 |
+| **GAP-J** (info geometry) | 🟡 medium | 🟡 (NQP tripped) | 🟡 | 3 |
+| GAP-C (entanglement) | 🟡 | 🟢 | 🟢 | 2 |
+| GAP-D (complex phase) | 🟡 | 🟡 exists | 🔴 retrain | low |
+| GAP-B (unitarity) | 🟡 | 🔴 much SOTA | 🟡 | low |
 
 ---
 
-## 4. Plan de experimentos
+## 4. Experiment plan
 
-### Fase 1 (sin reentrenar) — caracterización termodinámica
-**EXP-Q01 — Thermodynamic Characterization of Transformer Attention.** Por cabeza de
-atención en GPT-2, medir desde los logits de atención $s_i = q\cdot k_i/\sqrt d$:
-- temperatura efectiva (dispersión del softmax) vs $\sqrt d$  [E]
-- energía libre $F = -\tfrac1\beta\log Z$  [F]
-- pureza $\mathrm{Tr}(\rho^2)$  [A]
-- entropía de von Neumann $S(\rho)$  [H]
-- capacidad calorífica $C = \beta^2(\langle E^2\rangle-\langle E\rangle^2)$  [K]
-- **correlacionar todas con:** perplejidad, entropía de salida, (luego) alucinación, OOD.
+### Phase 1 (no retraining) — thermodynamic characterization
+**EXP-Q01 — Thermodynamic Characterization of Transformer Attention.** Per attention head in
+GPT-2, measure from the attention logits $s_i = q\cdot k_i/\sqrt d$:
+- effective temperature (softmax dispersion) vs $\sqrt d$  [E]
+- free energy $F = -\tfrac1\beta\log Z$  [F]
+- purity $\mathrm{Tr}(\rho^2)$  [A]
+- von Neumann entropy $S(\rho)$  [H]
+- heat capacity $C = \beta^2(\langle E^2\rangle-\langle E\rangle^2)$  [K]
+- **correlate all with:** perplexity, output entropy, (later) hallucination, OOD.
 
-Pregunta central: ¿hay tipos de cabeza con firmas termodinámicas distintas? ¿Alguna opera
-cerca de un punto crítico (picos de $C$/$\chi$)?
+Central question: are there head types with distinct thermodynamic signatures? Does any operate
+near a critical point (peaks of $C$/$\chi$)?
 
-### Fase 2 (análisis estructural)
-- **EXP-Q02:** información mutua $I(H_i;H_j)$ entre cabezas; correlaciones de largo alcance
-  como detector de criticidad → pruning/compresión sin reentrenar  [G]
-- barrido de $\beta$ en inferencia: buscar picos en $C$/$\chi$ = transiciones de fase internas [F,K]
-- entrelazamiento entre representaciones de tokens [C]
+### Phase 2 (structural analysis)
+- **EXP-Q02:** mutual information $I(H_i;H_j)$ between heads; long-range correlations as a
+  criticality detector → pruning/compression without retraining  [G]
+- $\beta$ sweep at inference: look for peaks in $C$/$\chi$ = internal phase transitions [F,K]
+- entanglement between token representations [C]
 
-### Fase 3 (más teórico)
-- **EXP-Q03:** ¿las capas implementan coarse-graining tipo RG? ¿puntos fijos? ¿universalidad?
-  Conexión con leyes de escala y profundidad óptima  [I]
-- geometría de información de la distribución de atención  [J]
+### Phase 3 (more theoretical)
+- **EXP-Q03:** do the layers implement RG-type coarse-graining? fixed points? universality?
+  Connection with scaling laws and optimal depth  [I]
+- information geometry of the attention distribution  [J]
 
-**Disciplina §0 en cada fase:** medir antes de modificar, refutar barato antes de escalar,
-y siempre controlar por el confound obvio (lección de NQP-U1b: correlación parcial, no bivariada).
+**§0 discipline in each phase:** measure before modifying, refute cheaply before scaling, and
+always control for the obvious confound (lesson from NQP-U1b: partial, not bivariate, correlation).
 
-### Hallazgo incidental (EXP-Q01 debug, 2026-06-25): gradiente de temperatura por profundidad
-Los logits de atención de GPT-2 crecen brutalmente con la profundidad (L0 max≈38, L6≈4.9e5,
-L11≈6.2e5 — fenómeno conocido de *attention logit growth* / massive activations). En lenguaje
-termodinámico: **las capas tienen un gradiente de temperatura efectiva.** Tempranas = calientes
-(atención distribuida, mezcla); profundas = frías (estado puro, purity≈1, T_eff≈1, atención
-casi determinista). Emerge sin que nadie lo entrene así. Refina GAP-F/K: el cambio de régimen
-no es solo entre *tipos de cabeza* sino *a lo largo de la profundidad* — capas finales en estado
-puro ≈ "decisión determinista", tempranas ≈ "exploración". Implicación práctica: cualquier
-métrica termodinámica debe normalizarse por capa, o la profundidad la domina (confound a controlar).
+### Incidental finding (EXP-Q01 debug, 2026-06-25): a temperature gradient with depth
+GPT-2's attention logits grow brutally with depth (L0 max≈38, L6≈4.9e5, L11≈6.2e5 — the known
+*attention logit growth* / massive activations phenomenon). In thermodynamic language: **the layers
+have an effective temperature gradient.** Early = hot (distributed attention, mixing); deep = cold
+(pure state, purity≈1, T_eff≈1, nearly deterministic attention). It emerges without anyone training
+it that way. It refines GAP-F/K: the regime change is not only between *head types* but *along the
+depth* — final layers in a pure state ≈ "deterministic decision", early ones ≈ "exploration".
+Practical implication: any thermodynamic metric must be normalized per layer, or depth dominates it
+(a confound to control).
 
-### Resultado EXP-Q01 (2026-06-25)
-- **Estructura de fases confirmada empíricamente.** Régimen termodinámico varía fuerte:
-  - Capas tempranas (L0): cabezas "líquidas" (T_eff≈15, purity≈0.43, S_vn≈1.4) Y "congeladas"
-    (T_eff≈1.2, purity≈0.99) coexisten en la misma capa.
-  - Capas profundas (L11): TODAS cristalizadas (T_eff=1.0, purity=1.0, S_vn=0) — atención
-    determinista, colapsada a 1 token.
-- **S_vn rastrea incertidumbre de predicción:** corr(S_vn, pred entropy) = −0.20, y
-  **sobrevive al control por posición** (parcial −0.18). No es confound (contraste con NQP-U1b).
-  → estimador de incertidumbre barato, candidato real (GAP-H).
+### Result EXP-Q01 (2026-06-25)
+- **Phase structure empirically confirmed.** The thermodynamic regime varies strongly:
+  - Early layers (L0): "liquid" heads (T_eff≈15, purity≈0.43, S_vn≈1.4) AND "frozen" ones
+    (T_eff≈1.2, purity≈0.99) coexist in the same layer.
+  - Deep layers (L11): ALL crystallized (T_eff=1.0, purity=1.0, S_vn=0) — deterministic attention,
+    collapsed to 1 token.
+- **S_vn tracks prediction uncertainty:** corr(S_vn, pred entropy) = −0.20, and **survives the
+  control for position** (partial −0.18). Not a confound (in contrast to NQP-U1b).
+  → a cheap uncertainty estimator, a real candidate (GAP-H).
 
-### Hipótesis de cristalización (J.P. Chancay, 2026-06-25) — NUEVA PRIORIDAD
-Si una cabeza tiene T_eff→1 (S_vn→0), su softmax colapsa a δ y la atención deja de ser
-promedio ponderado: `Attn ≈ V_{argmax}`. En ese régimen exp/sum/división son **innecesarios**
-— se reemplaza por `argmax` (Top-1) o Top-2. Beneficio: menos cómputo, menos memoria (no
-guardas la matriz de atención), menos tráfico de memoria (el cuello de botella real de LLMs).
+### Crystallization hypothesis (J.P. Chancay, 2026-06-25) — NEW PRIORITY
+If a head has T_eff→1 (S_vn→0), its softmax collapses to δ and attention stops being a weighted
+average: `Attn ≈ V_{argmax}`. In that regime exp/sum/division are **unnecessary** — replaced by
+`argmax` (Top-1) or Top-2. Benefit: less compute, less memory (no need to store the attention
+matrix), less memory traffic (the real bottleneck of LLMs).
 
-**Forma fuerte — cristalización total:** las capas profundas podrían no necesitar atención;
-aproximables por h_{l+1}=f(h_l) con f = MLP / routing / piecewise lineal. La atención profunda
-sería solo el mecanismo que *implementa* una decisión discreta ya cristalizada.
+**Strong form — total crystallization:** deep layers might not need attention; approximable by
+h_{l+1}=f(h_l) with f = MLP / routing / piecewise linear. Deep attention would just be the
+mechanism that *implements* an already-crystallized discrete decision.
 
-**Trampa a vigilar:** S_vn≈0 NO implica reemplazable — ∂Attn/∂q puede seguir importando si el
-modelo opera *cerca de una transición* (región sensible). Por eso hay que medir y ablacionar,
-no asumir. Métrica de determinismo genuino: R = p₂/p₁ (ratio del 2º al 1er peso). R≪1 ⇒
-genuinamente determinista.
+**Trap to watch:** S_vn≈0 does NOT imply replaceable — ∂Attn/∂q may still matter if the model
+operates *near a transition* (a sensitive region). That is why one must measure and ablate, not
+assume. Genuine-determinism metric: R = p₂/p₁ (ratio of the 2nd to the 1st weight). R≪1 ⇒
+genuinely deterministic.
 
-### Paper objetivo: *"Thermodynamic Phase Transitions and Attention Crystallization in
+### Target paper: *"Thermodynamic Phase Transitions and Attention Crystallization in
 ### Transformer Networks"*
-Ya no es analogía: es un mecanismo concreto de compresión/aceleración derivado de la
-termodinámica observada. Resultado central = curva ΔPPL(L) del reemplazo progresivo por Top-k.
+No longer an analogy: it is a concrete compression/acceleration mechanism derived from the observed
+thermodynamics. Central result = the ΔPPL(L) curve of progressive replacement by Top-k.
 
-### Plan EXP-Q02 — Attention Crystallization
+### EXP-Q02 plan — Attention Crystallization
 
-**Pre-registro (J.P. Chancay, 2026-06-25) — fijar hipótesis ANTES de ver datos (anti-NQP):**
-- **H0 (nula):** la baja entropía de capas profundas NO permite reemplazo determinista sin
-  degradación significativa.
-- **H1:** existe un subconjunto de capas profundas cuya atención se aproxima por un operador
-  Top-1/Top-k con pérdida de desempeño despreciable y mejora de eficiencia.
+**Pre-registration (J.P. Chancay, 2026-06-25) — fix the hypotheses BEFORE seeing the data
+(anti-NQP):**
+- **H0 (null):** the low entropy of deep layers does NOT allow deterministic replacement without
+  significant degradation.
+- **H1:** there exists a subset of deep layers whose attention is well-approximated by a Top-1/Top-k
+  operator with negligible performance loss and an efficiency gain.
 
-**Controles obligatorios (la baja S_vn por sí sola NO basta):**
-- **C1 — margen/ratio:** R = p₂/p₁ y margen p₁−p₂. S_vn bajo puede venir de [0.51,0.49,…]
-  (no determinista). Cristalización genuina requiere R≪1.
-- **C2 — estabilidad al ruido:** P(argmax(q) = argmax(q+ε)). Si el argmax cambia con
-  perturbación pequeña, la cabeza está *cerca de una transición* → reemplazarla rompe el
-  modelo (la "trampa": determinista ≠ reemplazable).
+**Mandatory controls (low S_vn alone is NOT enough):**
+- **C1 — margin/ratio:** R = p₂/p₁ and margin p₁−p₂. Low S_vn can come from [0.51,0.49,…]
+  (not deterministic). Genuine crystallization requires R≪1.
+- **C2 — noise stability:** P(argmax(q) = argmax(q+ε)). If the argmax changes under a small
+  perturbation, the head is *near a transition* → replacing it breaks the model (the "trap":
+  deterministic ≠ replaceable).
 
-**Fases:**
-- **A (diagnóstico, implementado):** por cabeza/capa medir R y estabilidad-argmax (C1+C2).
-- **B (causal):** reemplazo progresivo L11→Top-k, L10-11, … Curva ΔPPL(L) revela el punto de
-  congelamiento L_c. Resultado ideal: ΔPPL≈0 hasta cierta profundidad, luego explota.
-- **C (forma fuerte):** ¿capas cristalizadas reemplazables por f(h) sin Q/K/atención? →
-  transformers híbridos: primeras capas termodinámicas + últimas deterministas.
-- **Métricas:** PPL, exact match, throughput, VRAM, latencia.
+**Phases:**
+- **A (diagnostic, implemented):** per head/layer, measure R and argmax-stability (C1+C2).
+- **B (causal):** progressive replacement L11→Top-k, L10-11, … The ΔPPL(L) curve reveals the
+  freezing point L_c. Ideal result: ΔPPL≈0 up to some depth, then it explodes.
+- **C (strong form):** are crystallized layers replaceable by f(h) without Q/K/attention? →
+  hybrid transformers: early thermodynamic layers + final deterministic ones.
+- **Metrics:** PPL, exact match, throughput, VRAM, latency.
 
-Si B sale positivo aunque sea en las 2 últimas capas: deja de ser caracterización y pasa a ser
-**un mecanismo de aceleración/compresión derivado de una propiedad termodinámica medida** —
-resultado publicable mucho más fuerte.
+If B comes out positive even just in the last 2 layers: it stops being characterization and becomes
+**an acceleration/compression mechanism derived from a measured thermodynamic property** — a much
+stronger publishable result.
 
-### Resultado EXP-Q02 (2026-06-25) — H1 REFUTADA, pero con hallazgos
+### Result EXP-Q02 (2026-06-25) — H1 REFUTED, but with findings
 
-**Phase A (diagnóstico):** L1-L11 pasan C1+C2 (R≈0.00-0.05, argmax estable >94%). L0 es la
-única "líquida" (R=0.40). El diagnóstico decía: 11 capas cristalizables.
+**Phase A (diagnostic):** L1-L11 pass C1+C2 (R≈0.00-0.05, argmax stable >94%). L0 is the only
+"liquid" one (R=0.40). The diagnostic said: 11 crystallizable layers.
 
-**Phase B (causal):** reemplazo por Top-k REFUTA el diagnóstico:
+**Phase B (causal):** Top-k replacement REFUTES the diagnostic:
 
-| reemplazo | Top-1 ΔPPL | Top-2 ΔPPL |
+| replacement | Top-1 ΔPPL | Top-2 ΔPPL |
 |---|---|---|
-| solo L11 | +7.68 | +2.54 |
-| L9-11 (3 capas) | +16.5 | +4.71 |
-| L3-11 (9 capas) | +65.4 | +12.5 |
+| L11 only | +7.68 | +2.54 |
+| L9-11 (3 layers) | +16.5 | +4.71 |
+| L3-11 (9 layers) | +65.4 | +12.5 |
 | L1-11 | +523 | +78 |
-| L0-11 (todas) | +2308 | +500 |
+| L0-11 (all) | +2308 | +500 |
 
-**Conclusión: H0 se sostiene, H1 falla.** Reemplazar incluso SOLO L11 (R=0.00, argmax 100%
-estable) por argmax sube PPL +7.7 — no despreciable.
+**Conclusion: H0 holds, H1 fails.** Replacing even L11 ALONE (R=0.00, argmax 100% stable) by
+argmax raises PPL +7.7 — not negligible.
 
-**La lección — C2 (estabilidad argmax) es necesario pero NO suficiente:**
-> Aunque p₂/p₁≈0, la atención suma sobre cientos de tokens con pesos minúsculos. Esa **cola
-> agrega una contribución sistemática** al value de salida. El argmax captura *dónde* mira la
-> cabeza pero descarta la *integración sobre el contexto*. S_vn≈0 mide concentración de *dónde*,
-> no irrelevancia del *resto*. Top-2 reduce el daño a 1/3 de Top-1 → la info vive en la cola,
-> no en el pico. **Determinista en el peso máximo ≠ reemplazable por selección.**
+**The lesson — C2 (argmax stability) is necessary but NOT sufficient:**
+> Even though p₂/p₁≈0, attention sums over hundreds of tokens with tiny weights. That **tail adds
+> a systematic contribution** to the output value. The argmax captures *where* the head looks but
+> discards the *integration over context*. S_vn≈0 measures concentration of *where*, not
+> irrelevance of the *rest*. Top-2 reduces the damage to 1/3 of Top-1 → the information lives in
+> the tail, not the peak. **Deterministic in the max weight ≠ replaceable by selection.**
 
-**Hallazgos positivos (a pesar de refutar H1):**
-1. La curva ΔPPL(L) es **suave y monótona, sin codo abrupto** → NO hay punto de congelamiento
-   de primer orden; las capas forman un continuo funcional, no fases discretas separables.
-   (Refuta la imagen ingenua de "fases discretas líquido/crítico/congelado".)
-2. La única transición brusca está en **L0→L1** (Top-1: +523→+2308): L0 es cualitativamente
-   distinta (única líquida). La frontera líquido/sólido existe pero está al PRINCIPIO, no al final.
-3. Top-2 ≫ Top-1 sistemáticamente → mecanismo de "integración de cola", no de "selección".
+**Positive findings (despite refuting H1):**
+1. The ΔPPL(L) curve is **smooth and monotonic, with no abrupt elbow** → there is NO first-order
+   freezing point; the layers form a functional continuum, not separable discrete phases.
+   (Refutes the naive picture of "discrete liquid/critical/frozen phases".)
+2. The only abrupt transition is at **L0→L1** (Top-1: +523→+2308): L0 is qualitatively distinct
+   (the only liquid one). The liquid/solid boundary exists but is at the BEGINNING, not the end.
+3. Top-2 ≫ Top-1 systematically → a "tail integration" mechanism, not a "selection" one.
 
-**Implicación para el paper:** el ángulo "crystallization → aceleración" no funciona vía
-hard top-k. Pero la caracterización termodinámica (Q01) + la refutación cuantitativa de la
-selección dura (Q02) + el continuo funcional sí cuentan una historia honesta sobre por qué
-la atención NO es comprimible por selección pese a parecer determinista.
+**Implication for the paper:** the "crystallization → acceleration" angle does not work via hard
+top-k. But the thermodynamic characterization (Q01) + the quantitative refutation of hard selection
+(Q02) + the functional continuum do tell an honest story about why attention is NOT compressible by
+selection despite looking deterministic.
 
-### GAP-L — Atención cristalizada con excitaciones residuales (J.P. Chancay, 2026-06-25)
-Corrige el ángulo de Q02. La descomposición es **exacta**:
-$$\text{Attn} = \underbrace{V_{i^*}}_{\text{cristalizada}} + \underbrace{\epsilon}_{\text{excitaciones}},
+### GAP-L — Crystallized attention with residual excitations (J.P. Chancay, 2026-06-25)
+Corrects the angle of Q02. The decomposition is **exact**:
+$$\text{Attn} = \underbrace{V_{i^*}}_{\text{crystallized}} + \underbrace{\epsilon}_{\text{excitations}},
 \qquad \epsilon = \sum_{i\neq i^*} p_i V_i$$
-Q02 mostró que $\epsilon$ NO es despreciable. La pregunta nueva: **¿es $\epsilon$ comprimible?**
+Q02 showed that $\epsilon$ is NOT negligible. The new question: **is $\epsilon$ compressible?**
 
-**Interpretación física correcta (no "parte imaginaria"):** esto es *estado fundamental +
-excitaciones*, $|\psi\rangle = |0\rangle + \epsilon|1\rangle+\dots$, NO $a+ib$. La parte
-imaginaria en MC tiene la misma jerarquía que la real y produce interferencia — no es un
-término correctivo. El residual SÍ es subdominante. Así que la analogía rigurosa es
-ground-state + excitaciones; lo complejo queda como inspiración de representación, no como
-afirmación física. (Disciplina anti-NQP: no forzar la analogía.)
+**Correct physical interpretation (not "imaginary part"):** this is *ground state +
+excitations*, $|\psi\rangle = |0\rangle + \epsilon|1\rangle+\dots$, NOT $a+ib$. The imaginary part
+in QM has the same hierarchy as the real one and produces interference — it is not a corrective
+term. The residual IS subdominant. So the rigorous analogy is ground-state + excitations; the
+complex stays as representational inspiration, not a physical claim. (Anti-NQP discipline: do not
+force the analogy.)
 
-**EXP-Q03 — tres modelos de reemplazo en capas profundas:**
-- **A:** Top-1 puro (`V_{i*}`) — ya medido en Q02 (rompe).
-- **B:** Top-1 + residual completo `V_{i*} + ε` — debe recuperar exacto (sanity).
-- **C:** Top-1 + residual low-rank `V_{i*} + λ·r`, r de dimensión d_r ≪ d_head — el test real.
-- **Métricas:** ΔPPL vs d_r. Si d_r pequeño recupera casi toda la pérdida → las capas profundas
-  son *casi cristalinas con pocas excitaciones* que portan la información. Resultado fuerte.
-- **Bonus físico:** |z|²=‖V_{i*}‖²+‖ε‖² y θ=atan(‖ε‖/‖V_{i*}‖) como indicador de proximidad a
-  transición / incertidumbre residual.
+**EXP-Q03 — three replacement models in deep layers:**
+- **A:** pure Top-1 (`V_{i*}`) — already measured in Q02 (breaks).
+- **B:** Top-1 + full residual `V_{i*} + ε` — must recover exactly (sanity).
+- **C:** Top-1 + low-rank residual `V_{i*} + λ·r`, r of dimension d_r ≪ d_head — the real test.
+- **Metrics:** ΔPPL vs d_r. If a small d_r recovers almost all the loss → deep layers are *nearly
+  crystalline with few excitations* that carry the information. Strong result.
+- **Physics bonus:** |z|²=‖V_{i*}‖²+‖ε‖² and θ=atan(‖ε‖/‖V_{i*}‖) as an indicator of proximity to
+  a transition / residual uncertainty.
 
-### Resultado EXP-Q03 (2026-06-25) — Hε REFUTADA (residual NO es low-rank)
-Sanity OK (B = baseline exacto, ΔPPL=0). Pero el residual ε no es comprimible:
+### Result EXP-Q03 (2026-06-25) — Hε REFUTED (residual is NOT low-rank)
+Sanity OK (B = exact baseline, ΔPPL=0). But the residual ε is not compressible:
 
-| dim efectiva ε (90% var) | r=1 | r=4 | r=16 | r=32 |
+| effective dim ε (90% var) | r=1 | r=4 | r=16 | r=32 |
 |---|---|---|---|---|
 | **21 / 64** | 33% rec | 46% | 71% | 87% |
 
-El residual necesita ~21/64 dims para 90% de varianza; ni r=32 (medio espacio) recupera >87%
-de la pérdida de Top-1. La curva ΔPPL(r) es suave, sin saturación temprana. **La analogía de
-teoría efectiva (pocos modos de excitación) NO aplica:** las excitaciones son de alto rango,
-más cercanas a *ruido térmico equipartido* que a *fonones de pocos modos*.
+The residual needs ~21/64 dims for 90% of variance; not even r=32 (half the space) recovers >87% of
+the Top-1 loss. The ΔPPL(r) curve is smooth, with no early saturation. **The effective-theory
+analogy (few excitation modes) does NOT apply:** the excitations are high-rank, closer to
+*equipartitioned thermal noise* than to *few-mode phonons*.
 
-### Conclusión unificada de la línea de cristalización (Q02 + Q03)
-**La atención de GPT-2 resiste la compresión por toda vía estructural probada:**
-- Q02: no por selección dura (Top-k) → la cola de pesos pequeños hace trabajo sistemático.
-- Q03: no por proyección low-rank del residual → la cola es de alto rango (~21/64).
+### Unified conclusion of the crystallization line (Q02 + Q03)
+**GPT-2's attention resists compression by every structural route tested:**
+- Q02: not by hard selection (Top-k) → the tail of small weights does systematic work.
+- Q03: not by low-rank projection of the residual → the tail is high-rank (~21/64).
 
-La información de la "cola" de atención está **distribuida de forma irreducible** — densa, no
-pico + corrección. Resultado negativo fuerte: contra la intuición de que cabezas "deterministas"
-(R≈0, S_vn≈0) son comprimibles, la integración sobre el contexto es esencial e incompresible
-linealmente. (Posible escape: compresión NO lineal del residual, pero ya fuera del alcance CPU.)
+The information of the attention "tail" is **irreducibly distributed** — dense, not peak +
+correction. A strong negative result: against the intuition that "deterministic" heads (R≈0,
+S_vn≈0) are compressible, the integration over context is essential and linearly incompressible.
+(Possible escape: NONlinear compression of the residual, but already out of CPU scope.)
 
-### Priorización y paper objetivo (J.P. Chancay, 2026-06-25)
-Balance: 1 positivo robusto (estructura termodinámica) + señal moderada (S_vn↔incertidumbre)
-+ 2 negativos fuertes (Q02 selección, Q03 low-rank). En arquitecturas de IA, **negativos bien
-establecidos son muy valiosos: eliminan líneas enteras**. Prioridades:
-1. **S_vn como estimador de incertidumbre** (bajo riesgo/costo, señal ya existe).
-2. **Ley de escala de L_c** (medio, aprovecha lo hecho — EXP-Q04 listo).
-3. **Geometría de la cola residual (Dir-D):** PCA mide rango LINEAL; falta **dimensión
-   intrínseca** (Isomap/MLE/TwoNN). Si PCA→21 pero intrínseca→5, la conclusión de Q03 cambia
-   de "irreducible" a "no lineal pero compresible". **Control necesario para no sobre-afirmar.**
-- En pausa: compresión Top-k, reemplazos deterministas, analogías cuánticas fuertes.
+### Prioritization and target paper (J.P. Chancay, 2026-06-25)
+Balance: 1 robust positive (thermodynamic structure) + a moderate signal (S_vn↔uncertainty) + 2
+strong negatives (Q02 selection, Q03 low-rank). In AI architecture, **well-established negatives are
+very valuable: they eliminate whole lines.** Priorities:
+1. **S_vn as an uncertainty estimator** (low risk/cost, the signal already exists).
+2. **Scaling law of L_c** (medium, reuses what's done — EXP-Q04 ready).
+3. **Geometry of the residual tail (Dir-D):** PCA measures LINEAR rank; we are missing the
+   **intrinsic dimension** (Isomap/MLE/TwoNN). If PCA→21 but intrinsic→5, the Q03 conclusion
+   changes from "irreducible" to "nonlinear but compressible". **A necessary control to avoid
+   overclaiming.**
+- On hold: Top-k compression, deterministic replacements, strong quantum analogies.
 
-**Paper objetivo:** *"Thermodynamic Structure of Transformer Attention: Phase Separation,
-Uncertainty Estimation, and the Irreducibility of Residual Context Integration"*. Narrativa:
-(1) estructura termodinámica real; (2) S_vn rastrea incertidumbre; (3) capas "cristalizadas"
-NO comprimibles por aproximaciones lineales simples; (4) la integración contextual residual
-parece propiedad fundamental de la atención.
+**Target paper:** *"Thermodynamic Structure of Transformer Attention: Phase Separation, Uncertainty
+Estimation, and the Irreducibility of Residual Context Integration"*. Narrative: (1) real
+thermodynamic structure; (2) S_vn tracks uncertainty; (3) "crystallized" layers are NOT compressible
+by simple linear approximations; (4) residual context integration looks like a fundamental property
+of attention.
 
-### EXP-Q05 (Dir-D) — dimensión intrínseca del residual → REENMARCA Q03
-Estimar dim intrínseca de ε (TwoNN/MLE, no lineal) vs los 21 lineales de PCA. Califica si la
-"irreducibilidad" de Q03 es lineal-only o fundamental. Barato (solo sobre ε ya recolectables).
+### EXP-Q05 (Dir-D) — intrinsic dimension of the residual → REFRAMES Q03
+Estimate the intrinsic dim of ε (TwoNN/MLE, nonlinear) vs the 21 linear ones of PCA. It qualifies
+whether the "irreducibility" of Q03 is linear-only or fundamental. Cheap (only over ε, already
+collectible).
 
-**Resultado (2026-06-25) — la cola SÍ tiene estructura de baja dimensión (no lineal):**
+**Result (2026-06-25) — the tail DOES have low-dimensional (nonlinear) structure:**
 
-| | PCA lineal (90% var) | dim intrínseca (TwoNN) |
+| | linear PCA (90% var) | intrinsic dim (TwoNN) |
 |---|---|---|
 | residual ε (L9-11) | **23 / 64** | **6.8 / 64** |
 
-(TwoNN validado vs swiss-roll: detecta 2.7 donde PCA ve 3 → distingue no-lineal de rango lineal.)
+(TwoNN validated vs swiss-roll: detects 2.7 where PCA sees 3 → distinguishes nonlinear from linear
+rank.)
 
-**Corrige la conclusión de Q03:** la cola NO es "irreducible" — es **irreducible LINEALMENTE
-pero vive en un manifold no-lineal de ~7D**. La afirmación previa era sobre-afirmación
-(lineal-only). Claim correcto: *la integración de contexto es no-lineal pero de baja dimensión*.
-**Reabre la compresión** que Q02/Q03 parecían cerrar: el mecanismo correcto es un encoder NO
-lineal de la cola (p.ej. MLP 64→~8→64), no truncamiento/proyección lineal.
+**Corrects the Q03 conclusion:** the tail is NOT "irreducible" — it is **LINEARLY irreducible but
+lives on a ~7D nonlinear manifold**. The previous claim was an overclaim (linear-only). Correct
+claim: *context integration is nonlinear but low-dimensional*. **It reopens the compression** that
+Q02/Q03 seemed to close: the correct mechanism is a NONlinear encoder of the tail (e.g. MLP
+64→~8→64), not linear truncation/projection.
 
-**Lección (disciplina anti-NQP):** PCA mide rango lineal, no dimensión. "No comprimible por PCA"
-≠ "no comprimible". Dir-D (J.P. Chancay) atrapó la sobre-afirmación antes del paper. El paper
-debe decir "irreducible linealmente; estructura no-lineal de baja dim" — claim más preciso y
-de hecho más interesante (sugiere mecanismo, no solo límite).
+**Lesson (anti-NQP discipline):** PCA measures linear rank, not dimension. "Not compressible by
+PCA" ≠ "not compressible". Dir-D (J.P. Chancay) caught the overclaim before the paper. The paper
+must say "linearly irreducible; low-dim nonlinear structure" — a more precise and in fact more
+interesting claim (it suggests a mechanism, not just a limit).
 
-### Orden de evidencia (J.P. Chancay, 2026-06-25): Q04-lite ANTES que Q06
-Razón metodológica, no computacional: Q06 es mecanístico (¿se puede explotar?), Q04 es validez
-externa (¿el fenómeno es robusto a escala?). El encadenamiento sólido para paper es:
-**existe el fenómeno → escala → tiene estructura geométrica → puede explotarse.**
+### Evidence order (J.P. Chancay, 2026-06-25): Q04-lite BEFORE Q06
+A methodological, not computational, reason: Q06 is mechanistic (can it be exploited?), Q04 is
+external validity (is the phenomenon robust to scale?). The solid chaining for a paper is:
+**the phenomenon exists → it scales → it has geometric structure → it can be exploited.**
 
-**Hipótesis central (la apuesta de mayor valor):** $\dim(M_\epsilon) \approx \text{const}$ — la
-dimensión intrínseca del residual contextual es ~independiente del tamaño del modelo. Si cierto,
-es una **reducción efectiva de grados de libertad** (análogo a teorías efectivas en física),
-mucho más profundo y general que un método de compresión. Escenarios:
-- A: cristalización universal + dim_int≈const → Q06 prioridad absoluta + resultado profundo.
-- B: dim_int crece lento → Q06 sigue con sentido.
-- C: fenómeno desaparece en modelos grandes → Q06 pierde interés.
+**Central hypothesis (the highest-value bet):** $\dim(M_\epsilon) \approx \text{const}$ — the
+intrinsic dimension of the contextual residual is ~independent of model size. If true, it is an
+**effective reduction of degrees of freedom** (analogous to effective theories in physics), much
+deeper and more general than a compression method. Scenarios:
+- A: universal crystallization + dim_int≈const → Q06 absolute priority + a deep result.
+- B: dim_int grows slowly → Q06 still makes sense.
+- C: the phenomenon disappears in large models → Q06 loses interest.
 
-### EXP-Q04-lite — fenómeno + escala (solo inferencia)
-Para gpt2 small/medium/(large): medir L_c (vía R por capa) Y **dim intrínseca del residual**
-(TwoNN, el observable clave). Todo forward-only. Discrimina A/B/C.
+### EXP-Q04-lite — phenomenon + scale (inference only)
+For gpt2 small/medium/(large): measure L_c (via per-layer R) AND the **intrinsic dimension of the
+residual** (TwoNN, the key observable). All forward-only. Discriminates A/B/C.
 
-### Resultado EXP-Q04-lite (2026-06-25) — dim(M_ε) ≈ CONST (robusto, Caso A)
-Protocolo controlado (J.P. Chancay): N=1500 pts/cabeza idéntico, 8 cabezas, últimas 3 capas,
-mismo dataset, en gpt2 / medium / large (124M→355M→774M, 12→24→36 capas).
+### Result EXP-Q04-lite (2026-06-25) — dim(M_ε) ≈ CONST (robust, Case A)
+Controlled protocol (J.P. Chancay): identical N=1500 pts/head, 8 heads, last 3 layers, same
+dataset, on gpt2 / medium / large (124M→355M→774M, 12→24→36 layers).
 
-| modelo | capas | dim_int | dim_lin (PCA) |
+| model | layers | dim_int | dim_lin (PCA) |
 |---|---|---|---|
 | gpt2 | 12 | 7.2 ± 1.1 | 31.6 |
 | gpt2-medium | 24 | 8.1 ± 0.8 | 30.5 |
 | gpt2-large | 36 | 7.4 ± 0.7 | 28.0 |
 
-**spread entre-modelos = 0.9 ≈ ruido entre-cabezas intra-modelo = 0.8.** → La variación con la
-escala es indistinguible del ruido natural. El modelo crece 6× en params, 3× en capas, y la
-**dimensión intrínseca del residual contextual se queda en ~7-8.** Núcleo geométrico efectivo
-casi invariante a escala (Caso A de J.P.) — reducción efectiva de grados de libertad, análogo
-a teoría efectiva. (Contraste: dim LINEAL ~30 vs intrínseca ~7 en los tres → estructura
-no-lineal de baja dim es universal, no peculiaridad de small.)
+**between-model spread = 0.9 ≈ within-model between-head noise = 0.8.** → The variation with scale
+is indistinguishable from natural noise. The model grows 6× in params, 3× in layers, and the
+**intrinsic dimension of the contextual residual stays at ~7-8.** A geometric effective core nearly
+invariant to scale (J.P.'s Case A) — an effective reduction of degrees of freedom, analogous to an
+effective theory. (Contrast: LINEAR dim ~30 vs intrinsic ~7 in all three → low-dim nonlinear
+structure is universal, not a peculiarity of small.)
 
-**Honestidad — L_c NO es universal:** L_c = 2/1/9 ("MIXED"). large tiene fase líquida extendida
-(R: 0.86→…→0 gradual) vs small/medium que cristalizan en L1-L2. La profundidad de cristalización
-NO da ley limpia; **el observable universal es dim(M_ε), no L_c.** Decirlo así en el paper.
+**Honesty — L_c is NOT universal:** L_c = 2/1/9 ("MIXED"). large has an extended liquid phase
+(R: 0.86→…→0 gradual) vs small/medium that crystallize at L1-L2. The crystallization depth does
+NOT give a clean law; **the universal observable is dim(M_ε), not L_c.** State it that way in the
+paper.
 
-**Este es el resultado más fuerte del proyecto** y sobrevive control de protocolo (a diferencia
-del primer run con N no-controlado que dio 6.7 idéntico = artefacto). Mide validez externa:
-el fenómeno geométrico es robusto a escala.
+**This is the project's strongest result** and survives the protocol control (unlike the first run
+with uncontrolled N that gave an identical 6.7 = an artifact). It measures external validity: the
+geometric phenomenon is robust to scale.
 
-### EXP-Q06 (siguiente) — compresión no-lineal de la cola
-Autoencoder 64→32→16→~8→16→32→64 sobre ε; medir reconstrucción y luego reemplazar ε→ε̂ en el
-Transformer, medir ΔPPL. Caso A (ΔPPL≈0): cola comprimible no-linealmente (resultado fuerte).
-Caso B (degrada): dim geométrica ≠ dim funcional (también valioso). Peligro metodológico
-(J.P.): TwoNN da dim intrínseca LOCAL; no garantiza AE global suave de esa dim. Por eso Q06
-FALSA la hipótesis H-NL, no la asume.
+### EXP-Q06 (next) — nonlinear compression of the tail
+Autoencoder 64→32→16→~8→16→32→64 over ε; measure reconstruction and then replace ε→ε̂ in the
+Transformer, measure ΔPPL. Case A (ΔPPL≈0): tail nonlinearly compressible (a strong result).
+Case B (degrades): geometric dim ≠ functional dim (also valuable). Methodological danger (J.P.):
+TwoNN gives a LOCAL intrinsic dim; it does not guarantee a smooth global AE of that dim. That is
+why Q06 FALSIFIES the H-NL hypothesis rather than assuming it.
 
-### GAP-M — ¿Es la cristalización universal o contingente? Ley de escala de L_c (J.P. Chancay)
-**Pregunta formal:** ¿la profundidad de cristalización L_c es propiedad universal de la
-profundidad, o contingente de arquitectura/tamaño? Escenarios:
-1. **Escala con profundidad:** L_c crece con N_layers (modelos profundos → más región cristalina).
-2. **Punto fijo (RG):** L_c constante; añadir capas replica el régimen cristalino (→ GAP-I).
-3. **Recristalización parcial:** líquido→cristal→mezcla→cristal (cabezas de inducción/recuerdo
-   distintas requieren regímenes distintos).
-4. **Desaparece en grande:** GPT-2 small cristaliza por baja capacidad (decisiones "duras");
-   modelos grandes mantienen mezcla → fenómeno de modelos pequeños, no universal.
+### GAP-M — Is crystallization universal or contingent? Scaling law of L_c (J.P. Chancay)
+**Formal question:** is the crystallization depth L_c a universal property of depth, or contingent
+on architecture/size? Scenarios:
+1. **Scales with depth:** L_c grows with N_layers (deep models → more crystalline region).
+2. **Fixed point (RG):** L_c constant; adding layers replicates the crystalline regime (→ GAP-I).
+3. **Partial recrystallization:** liquid→crystal→mixture→crystal (induction/recall heads require
+   different regimes).
+4. **Disappears at large scale:** GPT-2 small crystallizes due to low capacity ("hard"
+   decisions); large models keep mixing → a small-model phenomenon, not universal.
 
-**Resultado fuerte buscado:** una ley L_c = f(N_params, N_layers, N_data) — p.ej. L_c ∝ log N,
-∝ √N, o constante. Cualquiera sería resultado científico por sí solo, y diría si "estado
-fundamental + excitaciones" es general o específico de GPT-2 small.
+**Strong result sought:** a law L_c = f(N_params, N_layers, N_data) — e.g. L_c ∝ log N, ∝ √N, or
+constant. Any of these would be a scientific result on its own, and would tell whether "ground
+state + excitations" is general or specific to GPT-2 small.
 
-**EXP-Q04 (escala):** repetir el perfil termodinámico (Q01: T_eff, S_vn, R por capa — BARATO,
-solo forward) en GPT-2 small/medium/large. Localizar L_c (capa donde R cae bajo umbral) en cada
-uno y ver la tendencia. Restricción de cómputo (CPU): Q01 viable hasta large; Q02/Q03 (decenas
-de PPL completas) solo en small. Estrategia: L_c vía firma Q01 barata en 3 tamaños → tendencia.
+**EXP-Q04 (scale):** repeat the thermodynamic profile (Q01: T_eff, S_vn, per-layer R — CHEAP,
+forward only) on GPT-2 small/medium/large. Locate L_c (the layer where R drops below threshold) in
+each and look at the trend. Compute constraint (CPU): Q01 viable up to large; Q02/Q03 (dozens of
+full PPLs) only on small. Strategy: L_c via the cheap Q01 signature on 3 sizes → trend.
