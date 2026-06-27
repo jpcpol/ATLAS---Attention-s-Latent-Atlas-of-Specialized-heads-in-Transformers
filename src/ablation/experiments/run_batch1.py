@@ -96,6 +96,8 @@ def run_one(model_cfg, train_cfg, seed, *, device, train_ids, val_ids, out_dir,
 def main():
     ap = argparse.ArgumentParser(description="ATLAS ablation Batch-1")
     ap.add_argument("--mode", choices=["batch1", "scale_control"], default="batch1")
+    ap.add_argument("--d-heads", type=int, nargs="+", default=None,
+                    help="restrict batch1 to these d_head values (e.g. 64 128); default = all 4")
     ap.add_argument("--seeds", type=int, nargs="+", default=list(BATCH1_SEEDS))
     ap.add_argument("--steps", type=int, default=6000)
     ap.add_argument("--batch-size", type=int, default=16)
@@ -130,6 +132,10 @@ def main():
         return
 
     variants = batch1_variants() if args.mode == "batch1" else scale_control_variants()
+    if args.d_heads:                          # restrict to requested d_head values
+        variants = [mc for mc in variants if mc.d_head in args.d_heads]
+        print(f"[filter] restricted to d_head ∈ {args.d_heads} -> "
+              f"{[mc.tag() for mc in variants]}")
     tc = TrainCfg(steps=args.steps, batch_size=args.batch_size, lr=args.lr,
                   max_train_tokens=args.max_train_tokens)
     summary = []

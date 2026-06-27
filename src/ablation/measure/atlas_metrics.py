@@ -81,12 +81,23 @@ def id_profile(model, ids, device, n_blocks=10, n_points=1200, n_profile=6):
     return profile
 
 
-def measure_atlas(model, ids, device, *, n_blocks=12, n_points=1200, rel_depth=0.9,
-                  n_deep=3, d_local=7):
-    """O_h (deepest n_deep layers, bootstrap CI) + plateau d_int (relative depth)."""
+def measure_atlas(model, ids, device, *, n_blocks=12, n_points=1200, rel_depth=0.5,
+                  n_window=3, d_local=7):
+    """O_h + plateau d_int measured in the COMPRESSED-PLATEAU window (Valeriani 2302.00294).
+
+    Valeriani et al. locate the minimum-ID / semantic plateau — the cleanest geometric régime
+    — at relative depth ~0.4–0.5, NOT near the final layers (rel ~0.9), which is their "final
+    ascent" phase. We therefore measure O_h and plateau-d_int in an n_window-layer band centred
+    on rel_depth=0.5, the plateau. (This DIVERGES from the cross-arch protocol, which used the
+    deepest layers; the ablation trains from scratch and is reported on its own plateau-centred
+    basis — recorded as a protocol divergence in the design doc, not silently mixed with the
+    pretrained deep-layer numbers.)
+    """
     geo = model_head_geometry(model)
     n_layer, n_rep = geo["n_layer"], geo["n_rep"]
-    layers = list(range(n_layer - n_deep, n_layer))
+    center = _layer_for_relative_depth(n_layer, rel_depth)
+    half = n_window // 2
+    layers = [L for L in range(center - half, center + half + 1) if 0 <= L < n_layer]
 
     o_cells = []
     for L in layers:
@@ -95,7 +106,6 @@ def measure_atlas(model, ids, device, *, n_blocks=12, n_points=1200, rel_depth=0
             o_cells.extend(inter_overlap(by_head, n_rep, d_local))
     mean_o, lo_o, hi_o, _ = bootstrap_ci(o_cells) if o_cells else (float("nan"),) * 4
 
-    Lrel = _layer_for_relative_depth(n_layer, rel_depth)
-    plateau_dint, _, _ = layer_dint(model, ids, Lrel, device, n_blocks, n_points)
-    return {"deep_layers": layers, "O_h": mean_o, "O_h_ci": [lo_o, hi_o],
-            "plateau_d_int": plateau_dint, "plateau_layer": Lrel}
+    plateau_dint, _, _ = layer_dint(model, ids, center, device, n_blocks, n_points)
+    return {"plateau_layers": layers, "rel_depth": rel_depth, "O_h": mean_o,
+            "O_h_ci": [lo_o, hi_o], "plateau_d_int": plateau_dint, "plateau_layer": center}

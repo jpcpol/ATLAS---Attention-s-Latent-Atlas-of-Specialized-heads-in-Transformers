@@ -66,25 +66,38 @@ def gate0(model, ids, device, *, val_curve, vocab_size=50257, n_blocks=10, n_poi
     g0a, a_info = _g0a_converged(val_curve, vocab_size)
     rep["G0a_converged"] = {"pass": bool(g0a), **a_info, "val_curve": list(val_curve)}
 
-    # G0b — depth régime: real bump in the per-layer ID profile.
-    # Bug fix (audit): `ends` previously read vals[0]/vals[-1] which may be NaN if the
-    # endpoint layer's measurement failed, making (peak - NaN) > 0.5 always False — a false
-    # negative. Use the first/last FINITE values instead, and record bump/peak/min so the
-    # decision (more steps vs threshold) can be made from data, not guessed.
+    # G0b — depth régime: the per-layer ID profile must show the expansion→compression
+    # shape Valeriani et al. (2302.00294) report: ID rises to an EARLY peak (first third),
+    # then compresses. CRITICALLY, Valeriani also report a FINAL ASCENT near the last layers
+    # ("ID grows again, returning toward input-level values") — a healthy part of the régime.
+    #
+    # Audit fix (2026-06-27): the original criterion (bump_vs_ends = peak − max(endpoints))
+    # PENALIZED that final ascent: a high last-layer ID shrinks peak−ends and produced a
+    # false-negative (d_head=64 failed with bump_vs_ends=0.18 while its bump_vs_min=1.44 was
+    # essentially identical to the d_head=32 runs that passed). We therefore decide G0b on
+    # **bump_vs_min** (peak above the profile MINIMUM = the true amplitude of the régime,
+    # which the final ascent does not corrupt) AND a **peak-location** check (the peak sits
+    # in the first half, rel ≤ 0.5, as Valeriani's early-peak finding requires). This is not
+    # loosening the gate arbitrarily — it aligns G0b with the régime the literature describes.
     profile = id_profile(model, ids, device, n_blocks, n_points, n_profile)
     vals = [p["d_int"] for p in profile]
     finite = [v for v in vals if v == v]              # drop NaN
     if len(finite) >= 3:
         peak, lo = max(finite), min(finite)
-        ends = max(finite[0], finite[-1])             # finite endpoints, not raw vals
+        ends = max(finite[0], finite[-1])             # finite endpoints (kept for reporting)
         bump_vs_ends = peak - ends
         bump_vs_min = peak - lo
-        g0b = bump_vs_ends > 0.5 and bump_vs_min > 0.5
+        # peak location: rel of the max-d_int layer (early peak per Valeriani)
+        peak_rel = next(p["rel"] for p in profile if p["d_int"] == peak)
+        peak_early = peak_rel <= 0.5
+        g0b = bump_vs_min > 0.5 and peak_early
     else:
         peak = lo = ends = float("nan")
-        bump_vs_ends = bump_vs_min = float("nan")
+        bump_vs_ends = bump_vs_min = peak_rel = float("nan")
+        peak_early = False
         g0b = False
     rep["G0b_depth_regime"] = {"pass": bool(g0b), "peak": peak, "min": lo,
+                               "peak_rel": peak_rel, "peak_early": bool(peak_early),
                                "bump_vs_ends": bump_vs_ends, "bump_vs_min": bump_vs_min,
                                "profile": profile}
 

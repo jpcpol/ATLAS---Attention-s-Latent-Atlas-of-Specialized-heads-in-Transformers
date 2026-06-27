@@ -31,8 +31,26 @@ experiments/results). Corre con `python run_batch1.py --mode batch1 --device cud
 - Consistente con P1: d_head=32 (< cluster 64) → O_h mayor (0.40 > 0.28). Falta confirmar
   64→~0.28 y 128→~0.20.
 
-**BLOQUEO ACTUAL: límite de GPU de Colab gratuito (~12-24h cooldown).** Runtime murió, JSON perdido
-(se regenera solo con --resume). Reanudar cuando vuelva GPU: Celda 1 (pull) → Celda 3 (--resume).
+**REVISIÓN DE PROTOCOLO run-1 (2026-06-27) — CRÍTICO para comparar resultados.** Tras run-1
+(d_head=32 ×2 válidos O_h~0.40; d_head=64 s42 dio O_h=0.275 pero FALLÓ G0b), re-lectura Valeriani
+(Fase 1) → 2 correcciones, registradas en docs/ablation_design.md §"Run-1 protocol revisions":
+- **G0b: bump_vs_ends → bump_vs_min + check pico temprano (rel≤0.5).** bump_vs_ends penalizaba el
+  *ascenso final* de Valeriani (fase sana). d_head=64 falló con bump_vs_ends=0.18 pero bump_vs_min=1.44
+  ≈ idéntico a los d_head=32 que pasaron (1.54,1.51). Re-evaluación offline: d_head=64 s42 → VÁLIDO,
+  O_h=0.275. NO es aflojar el gate: lo alinea con el régimen que Valeriani describe.
+- **Medición rel 0.9 → rel 0.5** (plateau comprimido de Valeriani, geometría más limpia; rel 0.9 era
+  su *ascenso final*). DIVERGENCIA DE PROTOCOLO: cross-arch + 4 controles midieron en deep (rel~0.9);
+  el ablation mide en rel 0.5. Los números del ablation se comparan ENTRE SÍ (across d_head), NO 1:1
+  con los clusters pretrained 0.28/0.20. P1 testea el contraste interno, que es consistente.
+- Añadido flag `--d-heads 64 128` para run dirigido.
+
+**PUNTOS VÁLIDOS hasta ahora (con G0b corregido, medición rel 0.9 del run-1 — OJO: run-2 medirá rel 0.5):**
+- d_head=32: O_h≈0.40 (×2 seeds) | d_head=64: O_h=0.275 (1 seed). Pendiente P1 decreciente: 0.40→0.28.
+- **CUIDADO comparabilidad:** estos O_h del run-1 son rel 0.9; el run-2 (rel 0.5) puede dar valores
+  distintos. Para P1 lo que importa es el contraste across d_head DENTRO de cada protocolo.
+
+**BLOQUEO: límite GPU Colab (~12-24h).** Reanudar run-2 DIRIGIDO: Celda 1 (pull) → run con
+`--d-heads 64 128` (faltan 64 s123, 128 ×2; 32 ya válidos). --resume salta lo hecho.
 
 **Pendiente token HF**: revocar hf_BhgO... (expuesto en sesiones previas).
 

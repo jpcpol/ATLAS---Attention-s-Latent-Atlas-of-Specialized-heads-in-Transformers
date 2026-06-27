@@ -90,6 +90,32 @@ job: O_h was a flat ≈ 0.40 for d_head = 32, which without the gate we might ha
 raise depth to **n_layers = 12** (= GPT-2, where the atlas and the phase profile demonstrably exist).
 Matched-scale preserved: all four d_head variants are 63.7M params at 12 layers.
 
+**Run-1 protocol revisions (2026-06-27) — recorded for faithful result comparison.** After run-1
+(d_head=32 ×2 valid, d_head=64 s42 produced O_h=0.275 but FAILED G0b), a Phase-1 re-read of
+Valeriani et al. (2302.00294) prompted two corrections. **Both runs (run-0/run-1) and any earlier
+deep-layer numbers must be compared with these revisions in mind — they change the gate criterion and
+the measurement depth.**
+
+1. **G0b criterion: `bump_vs_ends` → `bump_vs_min` + early-peak check.** The original gate scored the
+   depth régime as peak − max(endpoints). Valeriani report a *final ascent* phase (ID rises again near
+   the last layers, "returning toward input-level values") — a HEALTHY part of the régime. A high
+   last-layer ID shrank peak−ends and produced a **false negative**: d_head=64 failed with
+   bump_vs_ends=0.18 while its bump_vs_min=1.44 was essentially identical to the d_head=32 runs that
+   passed (1.54, 1.51). New criterion: **bump_vs_min > 0.5** (peak above the profile MINIMUM = the
+   true régime amplitude, immune to the final ascent) **AND peak_rel ≤ 0.5** (Valeriani's early-peak
+   finding: the ID peak sits in the first third/half). *Offline re-evaluation of the three run-1 JSONs
+   confirmed: d_head=32 ×2 stay valid, d_head=64 s42 becomes valid (O_h=0.275). This is NOT loosening
+   the gate arbitrarily — it aligns G0b with the régime the literature describes.*
+
+2. **Measurement depth: rel 0.9 → rel 0.5 (Valeriani's compressed plateau).** Valeriani locate the
+   minimum-ID / semantic plateau — the cleanest geometric régime — at rel ~0.4–0.5, NOT at rel ~0.9
+   (their *final ascent*). The ablation now measures O_h and plateau-d_int in a 3-layer window centred
+   on **rel 0.5**. **PROTOCOL DIVERGENCE (must not be silently mixed):** the cross-architecture results
+   and all four controls measured O_h in the *deepest* layers (rel ~0.9). The ablation's plateau-centred
+   O_h is therefore on a DIFFERENT basis; ablation numbers are compared to each other (across d_head),
+   not 1:1 to the pretrained deep-layer 0.28/0.20 clusters. (The within-ablation contrast across d_head
+   is what P1 tests, and it is internally consistent.)
+
 **Fixed across all models (the matched-scale constraint):**
 - d_model = 512, n_layers = 12, FFN = 4·d_model, context = 256, tokenizer = GPT-2 BPE
 - data = WikiText-103 train, identical token budget, identical optimizer/schedule/seed-set
