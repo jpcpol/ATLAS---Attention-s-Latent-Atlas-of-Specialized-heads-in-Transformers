@@ -17,7 +17,9 @@ class ModelCfg:
     """One ablation variant. d_head is the intervened axis; n_head is derived."""
     d_head: int
     d_model: int = 512
-    n_layer: int = 8
+    n_layer: int = 12              # 12 (= GPT-2) gives the depth régime the atlas needs;
+                                   # 8 layers failed Gate 0 G0b (plateau d_int stuck ~4 vs
+                                   # ~7-8 in pretrained GPT-2 — no expansion/compression bump)
     seq_len: int = 256              # also n_positions; measurement must not exceed it
     vocab_size: int = 50257
 

@@ -82,8 +82,16 @@ not the decomposition into direct/indirect paths.
 
 Train small decoder-only LMs from scratch on WikiText-103, identical in every axis but d_head.
 
+**Run-0 finding (2026-06-26) — depth raised 8 → 12.** The first attempt used n_layers = 8. It
+*passed* G0a (the LM converged, val_loss ≈ 6.0) but *failed* G0b: plateau-d_int stuck at ≈ 4 across
+all of training (vs ≈ 7–8 in pretrained GPT-2), i.e. no expansion→compression depth régime formed.
+Gate 0 correctly flagged this as INVALID (under-depth), not a refutation — the anti-NQP gate doing its
+job: O_h was a flat ≈ 0.40 for d_head = 32, which without the gate we might have read as a result. We
+raise depth to **n_layers = 12** (= GPT-2, where the atlas and the phase profile demonstrably exist).
+Matched-scale preserved: all four d_head variants are 63.7M params at 12 layers.
+
 **Fixed across all models (the matched-scale constraint):**
-- d_model = 512, n_layers = 8, FFN = 4·d_model, context = 256, tokenizer = GPT-2 BPE
+- d_model = 512, n_layers = 12, FFN = 4·d_model, context = 256, tokenizer = GPT-2 BPE
 - data = WikiText-103 train, identical token budget, identical optimizer/schedule/seed-set
 - positional = learned (one variant set) — so RoPE is NOT varied in this first batch
 - norm = LayerNorm (one variant set) — RMSNorm not varied in this first batch
