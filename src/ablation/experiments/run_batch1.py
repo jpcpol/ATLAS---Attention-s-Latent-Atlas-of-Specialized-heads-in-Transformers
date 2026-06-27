@@ -32,7 +32,8 @@ from measure.atlas_metrics import measure_atlas
 from measure.gate0 import gate0
 
 
-def run_one(model_cfg, train_cfg, seed, *, device, train_ids, val_ids, out_dir):
+def run_one(model_cfg, train_cfg, seed, *, device, train_ids, val_ids, out_dir,
+            save_ckpt=False):
     print(f"\n{'='*72}\n[VARIANT] {model_cfg.tag()} seed={seed}\n{'='*72}")
     emergence = []          # P5: (frac, step, val_loss, O_h, plateau_d_int) per snapshot
     val_curve = []
@@ -51,6 +52,10 @@ def run_one(model_cfg, train_cfg, seed, *, device, train_ids, val_ids, out_dir):
                           "plateau_d_int": m["plateau_d_int"], "n_points": npts})
         oh = m["O_h"]; di = m["plateau_d_int"]
         print(f"      [P5] {frac:>4.0%}  O_h={oh:.3f}  plateau_d_int={di:.2f}  (N={npts})")
+        if save_ckpt and out_dir:
+            from train.checkpoints import save_snapshot
+            save_snapshot(model, os.path.join(out_dir, "ckpt"),
+                          model_cfg.tag(), seed, step)
 
     model, hist = train_with_snapshots(
         model_cfg, train_cfg, seed=seed, device=device,
@@ -61,6 +66,12 @@ def run_one(model_cfg, train_cfg, seed, *, device, train_ids, val_ids, out_dir):
     print(f"\n  [Gate 0] passed={passed}")
     for k in ("G0a_converged", "G0b_depth_regime", "G0c_residual_stable", "G0d_base_atlas"):
         print(f"    {k}: {g0[k]['pass']}")
+    # Show the depth profile so 'more steps vs threshold' is decidable from data, not guessed.
+    g0b = g0["G0b_depth_regime"]
+    prof = "  ".join(f"{p['rel']}:{p['d_int']:.1f}" for p in g0b["profile"])
+    print(f"    G0b detail: peak={g0b.get('peak', float('nan')):.2f} "
+          f"bump_vs_ends={g0b.get('bump_vs_ends', float('nan')):.2f} "
+          f"(need >0.5) | ID profile (rel:d_int): {prof}")
 
     final = emergence[-1] if emergence else None
     result = {"config": cfg_to_dict(model_cfg, train_cfg), "seed": seed,
@@ -94,6 +105,12 @@ def main():
     ap.add_argument("--out-dir", type=str, default="../../../docs/ablation_batch1")
     ap.add_argument("--smoke", action="store_true",
                     help="one tiny variant, few steps — validate the pipeline")
+    ap.add_argument("--resume", action="store_true", default=True,
+                    help="skip (variant, seed) whose result JSON already exists (default on)")
+    ap.add_argument("--force", action="store_true",
+                    help="re-run even if the result JSON exists (overrides --resume)")
+    ap.add_argument("--save-ckpt", action="store_true",
+                    help="save a model checkpoint at each snapshot (for offline re-measure)")
     args = ap.parse_args()
 
     from transformers import GPT2TokenizerFast
@@ -118,11 +135,21 @@ def main():
     summary = []
     for mc in variants:
         for s in args.seeds:
-            r = run_one(mc, tc, s, device=args.device, train_ids=train_ids,
-                        val_ids=val_ids, out_dir=args.out_dir)
+            # Resume-safe: skip a (variant, seed) whose result JSON already exists, so a
+            # Colab disconnect never costs more than the one in-flight run. --force re-runs.
+            done_path = os.path.join(args.out_dir, f"{mc.tag()}_seed{s}.json")
+            if args.resume and not args.force and os.path.exists(done_path):
+                with open(done_path, encoding="utf-8") as f:
+                    r = json.load(f)
+                print(f"\n[SKIP] {mc.tag()} seed={s} — already done "
+                      f"(VALID={r.get('VALID')}, O_h={r.get('final_O_h')})")
+            else:
+                r = run_one(mc, tc, s, device=args.device, train_ids=train_ids,
+                            val_ids=val_ids, out_dir=args.out_dir,
+                            save_ckpt=args.save_ckpt)
             summary.append({"tag": mc.tag(), "d_head": mc.d_head, "seed": s,
-                            "valid": r["VALID"], "O_h": r["final_O_h"],
-                            "plateau_d_int": r["final_plateau_d_int"]})
+                            "valid": r.get("VALID"), "O_h": r.get("final_O_h"),
+                            "plateau_d_int": r.get("final_plateau_d_int")})
 
     print(f"\n{'='*72}\n[{args.mode.upper()} SUMMARY]\n{'='*72}")
     print(f"  {'d_head':>6} | {'seed':>4} | {'valid':>5} | {'O_h':>6} | {'plateau_d_int':>13}")

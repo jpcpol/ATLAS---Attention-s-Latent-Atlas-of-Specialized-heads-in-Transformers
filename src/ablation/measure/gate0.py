@@ -66,16 +66,27 @@ def gate0(model, ids, device, *, val_curve, vocab_size=50257, n_blocks=10, n_poi
     g0a, a_info = _g0a_converged(val_curve, vocab_size)
     rep["G0a_converged"] = {"pass": bool(g0a), **a_info, "val_curve": list(val_curve)}
 
-    # G0b — depth régime: real bump in the per-layer ID profile
+    # G0b — depth régime: real bump in the per-layer ID profile.
+    # Bug fix (audit): `ends` previously read vals[0]/vals[-1] which may be NaN if the
+    # endpoint layer's measurement failed, making (peak - NaN) > 0.5 always False — a false
+    # negative. Use the first/last FINITE values instead, and record bump/peak/min so the
+    # decision (more steps vs threshold) can be made from data, not guessed.
     profile = id_profile(model, ids, device, n_blocks, n_points, n_profile)
     vals = [p["d_int"] for p in profile]
     finite = [v for v in vals if v == v]              # drop NaN
     if len(finite) >= 3:
-        peak, ends = max(finite), max(vals[0], vals[-1])
-        g0b = (peak - ends) > 0.5 and (peak - min(finite)) > 0.5
+        peak, lo = max(finite), min(finite)
+        ends = max(finite[0], finite[-1])             # finite endpoints, not raw vals
+        bump_vs_ends = peak - ends
+        bump_vs_min = peak - lo
+        g0b = bump_vs_ends > 0.5 and bump_vs_min > 0.5
     else:
-        peak, g0b = float("nan"), False
-    rep["G0b_depth_regime"] = {"pass": bool(g0b), "peak": peak, "profile": profile}
+        peak = lo = ends = float("nan")
+        bump_vs_ends = bump_vs_min = float("nan")
+        g0b = False
+    rep["G0b_depth_regime"] = {"pass": bool(g0b), "peak": peak, "min": lo,
+                               "bump_vs_ends": bump_vs_ends, "bump_vs_min": bump_vs_min,
+                               "profile": profile}
 
     # G0c — residual stability at the deepest layer
     dint_deep, by_head, N = layer_dint(model, ids, deep, device, n_blocks, n_points)
