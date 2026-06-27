@@ -8,7 +8,34 @@ metadata:
 # Estado de sesión — NQP / ATLAS
 
 **Última sesión**: 2026-06-26
-**Rama activa**: atlas (cross-architecture)
+**Rama activa**: atlas → ablation (EXP-ABLATION en ejecución)
+
+## EXP-ABLATION — estado (2026-06-26, fin de sesión)
+
+**Harness construido, auditado, resume-safe.** Estructura `src/ablation/` (train/measure/
+experiments/results). Corre con `python run_batch1.py --mode batch1 --device cuda --steps 6000`.
+
+**Calibración resuelta:**
+- n_layer 8 → **12** (8 capas fallaban Gate 0 G0b: sin régimen de profundidad; 12 = GPT-2 lo da).
+- fp16 autocast (cuda) activo: ~177s/600 pasos, ~29 min/run.
+- Medición P5 ligera en intermedios (N=600), plena en final (N=1200).
+- Matched-scale a 12 capas: 4 d_head → 63.7M idénticos.
+- G0b mide FORMA del perfil (bump >0.5), NO magnitud de d_int. Instrumentado (imprime perfil)
+  + fix bug NaN en endpoints.
+- Resume-safe: `--resume` (default) salta runs con JSON existente; `--save-ckpt` opcional.
+
+**ÚNICO punto medido (run perdido al morir runtime Colab, pero capturado en chat):**
+- **d_head=32, 12 capas, seed=42 → O_h ≈ 0.401, Gate 0 PASÓ (válido).**
+- Curva P5: O_h plano en ~0.40 desde el 10% del entrenamiento (val_loss 6.79→6.01);
+  plateau_d_int 3.3→4.0. **El atlas emerge tempranísimo, no se refina al final.** (Dato P5 fuerte.)
+- Consistente con P1: d_head=32 (< cluster 64) → O_h mayor (0.40 > 0.28). Falta confirmar
+  64→~0.28 y 128→~0.20.
+
+**BLOQUEO ACTUAL: límite de GPU de Colab gratuito (~12-24h cooldown).** Runtime murió, JSON perdido
+(se regenera solo con --resume). Reanudar cuando vuelva GPU: Celda 1 (pull) → Celda 3 (--resume).
+
+**Pendiente token HF**: revocar hf_BhgO... (expuesto en sesiones previas).
+
 
 ## Resultado central de esta sesión — arco cross-architecture CERRADO
 
