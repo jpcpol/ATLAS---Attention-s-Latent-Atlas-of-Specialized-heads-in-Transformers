@@ -39,12 +39,18 @@ def run_one(model_cfg, train_cfg, seed, *, device, train_ids, val_ids, out_dir):
 
     def on_snapshot(model, step, frac, val_loss):
         val_curve.append(val_loss)
-        m = measure_atlas(model, val_ids, device)
+        # P5 cost control: intermediate snapshots only need the SHAPE of the emergence
+        # curve, so they use fewer points (faster); the FINAL snapshot (frac>=1.0) uses
+        # full points so the number that feeds P1/P4 and is compared to the cross-arch
+        # 0.28/0.20 clusters is measured at the same fidelity as every prior result.
+        is_final = frac >= 0.999
+        npts = 1200 if is_final else 600
+        m = measure_atlas(model, val_ids, device, n_points=npts)
         emergence.append({"frac": round(frac, 3), "step": step, "val_loss": val_loss,
                           "O_h": m["O_h"], "O_h_ci": m["O_h_ci"],
-                          "plateau_d_int": m["plateau_d_int"]})
+                          "plateau_d_int": m["plateau_d_int"], "n_points": npts})
         oh = m["O_h"]; di = m["plateau_d_int"]
-        print(f"      [P5] {frac:>4.0%}  O_h={oh:.3f}  plateau_d_int={di:.2f}")
+        print(f"      [P5] {frac:>4.0%}  O_h={oh:.3f}  plateau_d_int={di:.2f}  (N={npts})")
 
     model, hist = train_with_snapshots(
         model_cfg, train_cfg, seed=seed, device=device,

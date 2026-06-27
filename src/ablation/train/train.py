@@ -121,6 +121,16 @@ def train_with_snapshots(model_cfg, train_cfg, *, seed, device, train_ids, val_i
     opt = torch.optim.AdamW(model.parameters(), lr=train_cfg.lr,
                             weight_decay=train_cfg.weight_decay, betas=(0.9, 0.95))
     steps, warmup, lr = train_cfg.steps, train_cfg.warmup, train_cfg.lr
+    # fp16 autocast on cuda only (1.5-2x on T4). Does NOT change the experiment: the same
+    # steps, batch, and data; only compute precision. The cross-arch gate already verified
+    # the residual geometry is fp16-robust (GPT-2 fp16 O_h=0.283 vs fp32 0.284). CPU stays
+    # fp32 so local smoke tests are unaffected.
+    use_amp = str(device).startswith("cuda")
+    try:
+        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)        # torch >= 2.4 API
+    except (AttributeError, TypeError):
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)           # older torch
+
 
     def lr_at(step):
         if step < warmup:
@@ -140,11 +150,14 @@ def train_with_snapshots(model_cfg, train_cfg, *, seed, device, train_ids, val_i
         for pg in opt.param_groups:
             pg["lr"] = lr_at(step)
         x, y = _batch(train_ids, model_cfg.seq_len, train_cfg.batch_size, device, g)
-        loss = model(x, labels=y).loss
         opt.zero_grad(set_to_none=True)
-        loss.backward()
+        with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
+            loss = model(x, labels=y).loss
+        scaler.scale(loss).backward()
+        scaler.unscale_(opt)
         torch.nn.utils.clip_grad_norm_(model.parameters(), train_cfg.grad_clip)
-        opt.step()
+        scaler.step(opt)
+        scaler.update()
 
         if step % train_cfg.log_every == 0:
             hist["step"].append(step); hist["train_loss"].append(loss.item())
