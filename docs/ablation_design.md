@@ -170,6 +170,16 @@ deepest layers; `atlas_dhead_control` plateau d_int at relative depth 0.9):
 - **P4 (existence is régime-independent).** Every variant has O_h ≪ 1 (the atlas exists at every
   d_head). A refutation here (some d_head gives O_h ≈ 1, aligned heads) would be the most surprising
   and important outcome. (Note: P4 also serves as Gate 0d, the validity floor.)
+- **P5 (temporal emergence — what forms first, the atlas or the plateau? — added 2026-06-26).**
+  Training from scratch gives a *direction* that frozen pretrained models cannot: we snapshot each
+  run at 10/25/50/75/100 % of training and measure O_h(t) and plateau-d_int(t) at every snapshot.
+  Pre-registered question: **does the plateau-d_int mature BEFORE O_h organizes, or after, or
+  together?** If plateau-d_int reaches its final value while O_h is still high and only then O_h
+  drops → temporal-ordering evidence for d_int → O_h that no frozen model can provide. If O_h
+  organizes first → the reverse. We pre-register only that we will *report the ordering of the two
+  emergence curves*; we do NOT pre-commit to which comes first (genuinely open). This is a directional
+  hint, NOT a causal proof (training is one coupled process), and the atlas's temporal emergence may
+  be a result in its own right.
 
 **Verdict matrix.** P1∧P2 → B/C (d_head moves O_h via the plateau-d_int it induces). P1∧¬P2 → A
 (direct). ¬P1 (Gate 0 passed) → the (d_head, n_heads) axis is not the lever — re-examine. P3 is the
