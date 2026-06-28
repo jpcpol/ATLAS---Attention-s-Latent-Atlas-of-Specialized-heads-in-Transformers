@@ -221,6 +221,34 @@ fixed-point-like gate; P4 is the existence floor. Throughout, "d_head moves O_h"
 "d_head *causes* O_h": the package may **index/parametrize** a deeper geometric quantity (C) without
 being the mechanism — a possibility we keep explicitly alive.
 
+## 4.5 Post-hoc observations from run-1 (EXPLORATORY — NOT pre-registered)
+
+These two patterns were *noticed in the run-1 data*, AFTER seeing it (d_head=32, rel-0.5). They are
+**not** pre-registered predictions and must not be reported with the same strength as P1–P5. They are
+**candidates for a NEW AICR cycle** — and per the method, an interesting post-hoc pattern earns a
+hypothesis only after passing search → second opinion. The agreed flow before testing either:
+**(1) web/literature search → (2) adversarial second opinion → (3) only then form a hypothesis and
+pre-register a test.** Recorded here so they are not lost and not silently promoted.
+
+- **OBS-A (temporal emergence order).** In run-1, O_h is essentially flat from ~10 % of training
+  (≈ 0.40) while plateau-d_int is still moving (rises to a mid-training peak, then decays toward the
+  end). *If* this holds across d_head, the emergence ORDER (O_h early, plateau-d_int late) would
+  argue **against d_int → O_h** (a cause cannot arrive after its effect) and **toward hypothesis C**
+  (a latent Λ fixed early, with O_h a fast readout and d_int a slower, separate dynamic). Note the
+  rise-then-decay of plateau-d_int *in training time* mirrors Valeriani's expansion→compression
+  *in depth* — possibly a finding in its own right. **Do not conclude from one d_head.**
+- **OBS-B (plateau-d_int is seed-noisy; O_h is seed-robust).** Between the two d_head=32 seeds, O_h
+  differed by 0.001 while plateau-d_int differed by up to ~1.2 at mid-training. *If* general, this
+  says O_h is a "hard" (stable, reproducible) quantity and plateau-d_int a "soft" (init-sensitive,
+  dynamic) one — i.e. they may sit at different causal levels (O_h more fundamental, d_int more
+  emergent), again consistent with C. **Methodological consequence for P2:** for plateau-d_int to
+  count as "changing with d_head", the between-d_head difference must clearly exceed the ~1.2
+  within-d_head seed spread — the same within-vs-between discipline used in the cross-arch work.
+
+**Status:** parked for a dedicated AICR cycle (search → second opinion → hypothesis → test). The
+current batch's `aggregate.py` already computes the emergence order (frac@d_int90 vs frac@O_h90) and
+the per-d_head seed spread, so the batch supplies the raw evidence for that future cycle.
+
 ## 5. What this does and does NOT establish (scope, anti-NQP)
 
 - **Does:** the *total effect* of the (d_head, n_heads) intervention on O_h, at matched scale, on

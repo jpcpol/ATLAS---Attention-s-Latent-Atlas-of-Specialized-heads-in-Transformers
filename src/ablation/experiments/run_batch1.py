@@ -70,8 +70,9 @@ def run_one(model_cfg, train_cfg, seed, *, device, train_ids, val_ids, out_dir,
     g0b = g0["G0b_depth_regime"]
     prof = "  ".join(f"{p['rel']}:{p['d_int']:.1f}" for p in g0b["profile"])
     print(f"    G0b detail: peak={g0b.get('peak', float('nan')):.2f} "
-          f"bump_vs_ends={g0b.get('bump_vs_ends', float('nan')):.2f} "
-          f"(need >0.5) | ID profile (rel:d_int): {prof}")
+          f"bump_vs_min={g0b.get('bump_vs_min', float('nan')):.2f} (need >0.5) "
+          f"peak_rel={g0b.get('peak_rel', float('nan'))} "
+          f"early={g0b.get('peak_early')} | ID profile (rel:d_int): {prof}")
 
     final = emergence[-1] if emergence else None
     result = {"config": cfg_to_dict(model_cfg, train_cfg), "seed": seed,
