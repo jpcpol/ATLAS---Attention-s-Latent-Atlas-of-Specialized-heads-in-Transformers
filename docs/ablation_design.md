@@ -195,12 +195,19 @@ deepest layers; `atlas_dhead_control` plateau d_int at relative depth 0.9):
   interesting. Monotonicity is pre-registered only for O_h (P1), where the cross-arch sweep already
   showed it. If plateau-d_int is *flat* while O_h moves → d_int is NOT the mediator; A (direct) gains;
   C weakens. (Descriptive only — post-treatment mediator, §2.)
-- **P3 (scale-invariance at fixed d_head — the most important control of the batch).** A second
-  mini-run at d_model = 768, n_layers = 8, fixed d_head = 64 (a different scale, same régime)
-  reproduces H2's O_h within the cross-arch robustness band (< 0.02). This is the cleanest evidence
-  the design can produce: invariance to scale under a concrete intervention = **fixed-point-like
-  behavior**. If O_h jumps with scale at fixed d_head → not a clean effective fixed point; the régime
-  index is not d_head alone.
+- **P3 (scale-invariance at fixed d_head — the most important control of the batch).** Two runs at
+  fixed d_head = 64, n_layers = 12, varying scale via **d_model = 512 vs 768** (×2 seeds), measured at
+  rel 0.5 like the rest of the ablation. P3 holds if the d_model=768 O_h reproduces the d_model=512 O_h
+  (≈ 0.278, the Day-1 cluster-64 value) within the cross-arch robustness band (< 0.02). This is the
+  cleanest evidence the design can produce: invariance to scale under a concrete intervention =
+  **fixed-point-like behavior**. If O_h jumps with scale at fixed d_head → not a clean effective fixed
+  point; the régime index is not d_head alone.
+  **Covariate note (2026-06-27):** varying d_model at fixed d_head also changes n_head (512→8 heads,
+  768→12 heads). P3 therefore tests scale with n_head as a *covariate*, not in isolation. This is
+  acceptable because the cross-arch work already showed cluster-64 O_h ≈ 0.28 is robust to n_head
+  (GPT-2 n=8 → 0.283, Qwen n=14 → 0.290); n_head is a known-robust covariate here, not a free
+  confounder. Recorded so "fixed-point-like" is not over-read as "scale-pure". Run config:
+  `scale_control_variants()` (d_model 512 & 768, n_layer 12).
 - **P4 (existence is régime-independent).** Every variant has O_h ≪ 1 (the atlas exists at every
   d_head). A refutation here (some d_head gives O_h ≈ 1, aligned heads) would be the most surprising
   and important outcome. (Note: P4 also serves as Gate 0d, the validity floor.)
@@ -245,9 +252,46 @@ pre-register a test.** Recorded here so they are not lost and not silently promo
   count as "changing with d_head", the between-d_head difference must clearly exceed the ~1.2
   within-d_head seed spread — the same within-vs-between discipline used in the cross-arch work.
 
-**Status:** parked for a dedicated AICR cycle (search → second opinion → hypothesis → test). The
-current batch's `aggregate.py` already computes the emergence order (frac@d_int90 vs frac@O_h90) and
-the per-d_head seed spread, so the batch supplies the raw evidence for that future cycle.
+**Status (2026-06-27):** AICR cycle for OBS-A/B advanced through **Phase 1 (search) + Phase 3 (second
+opinion)**; pre-registration + test (Phase 4+) **deferred until the main ablation closes** (P1 with
+128/256, then P3) — keep focus on the pre-registered lines first. Captured below so the cycle resumes
+cold.
+
+**Phase-1 findings (literature).**
+- Functional attention structure (induction/retrieval heads) emerges *gradually*, in stages, with
+  loss phase-changes (2502.06902, 2411.12118, 2404.07129). This is **function**, a different object
+  from our **subspace geometry** — so it does NOT contradict OBS-A (O_h flat early).
+- Attention-output low-rankness is *partly architectural* — induced by W^O and the constraint
+  dim(⋃ span(headᵢ)) ≤ d_head·n_head (2508.16929). That paper EXPLICITLY does **not** test whether
+  the structure exists at init or emerges in training — an open gap our O_h(t) touches.
+- Intrinsic dim *rises-then-compresses during training* (Ansuini 1905.12784) — confirms OBS-A's
+  plateau-d_int rise→peak→decay as a KNOWN phenomenon (not our novelty).
+- Geometric quantities can have per-seed variance of different orders of magnitude (2601.13303,
+  360–500× vs accuracy) — makes OBS-B plausible.
+
+**Phase-3 (adversarial cross-check) — accepted points.**
+- **Mandatory baseline control:** O_h≈0.40 at init could be TRIVIAL geometry induced by
+  d_model/d_head/W^O with no functional structure. The test must produce THREE curves per d_head:
+  O_h(init), O_h(randomized: gaussian same-cov / SVD-randomized / sample-permuted), O_h(trained).
+  Without the random baseline, "O_h at init" is uninterpretable.
+- **Claim is bounded:** the supported statement is **"O_h converges much earlier than d_int"**, NOT
+  "O_h is architectural" — fast self-organization (symmetry breaking in the first hundreds of steps,
+  LayerNorm bias) would also give early convergence without being architectural. The **step-0**
+  measurement is what separates "present at init" from "rapidly acquired".
+- OBS-B adds **independent convergent evidence** (a distinct qualitative prediction), and "robust vs
+  constant-by-construction" is separated by an **init-sensitivity test** (Xavier/Kaiming/Orthogonal/
+  gain): O_h constant across inits ⇒ architectural.
+- Possible decomposition O_h = O_struct + O_learned (do NOT assume O_struct dominates — that is
+  ChatGPT's prior, declared, not expected).
+
+**Pre-registered hypothesis (drafted, to commit when the line opens) — H-TEMP.**
+> *Inter-head overlap O_h converges significantly earlier than the residual intrinsic dimension. We
+> test whether O_h is already present at initialization (vs a random-geometry baseline) or is
+> rapidly acquired in the earliest optimization steps.*
+Three tests: **T1** step-0 measurement + random baseline (no training — cheap, decisive);
+**T2** full temporal evolution (already collected via P5); **T3** init-sensitivity. Secondary line,
+not a new project. The current batch's `aggregate.py` already supplies the T2 raw evidence
+(emergence order + per-d_head seed spread).
 
 ## 5. What this does and does NOT establish (scope, anti-NQP)
 

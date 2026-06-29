@@ -54,6 +54,10 @@ experiments/results). Corre con `python run_batch1.py --mode batch1 --device cud
 
 **Pendiente token HF**: revocar hf_BhgO... (expuesto en sesiones previas).
 
+**CONVENCIÓN (decisión usuario 2026-06-27): un Colab NUEVO por test/etapa.** Cada corrida usa su
+propio notebook → queda como registro inmutable de la prueba (output completo, qué se corrió, cuándo).
+Coherente con la memoria persistente de AICR. Para el Día 2: notebook nuevo, NO reusar el del Día 1.
+
 
 ## Resultado central de esta sesión — arco cross-architecture CERRADO
 
