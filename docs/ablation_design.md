@@ -90,6 +90,20 @@ job: O_h was a flat ≈ 0.40 for d_head = 32, which without the gate we might ha
 raise depth to **n_layers = 12** (= GPT-2, where the atlas and the phase profile demonstrably exist).
 Matched-scale preserved: all four d_head variants are 63.7M params at 12 layers.
 
+**RESULTS (2026-06-29) — P1 ✅ and P3 ✅ confirmed.**
+- **P1 (intervention moves O_h):** O_h = 0.40 / 0.28 / 0.20 across d_head 32 / 64 / 128 (×2 seeds,
+  rel 0.5), reproducing the cross-arch clusters in models TRAINED FROM SCRATCH. d_head=256 (n_head=2)
+  FAILED Gate 0 in both seeds (degenerate régime, anomalous late-peak profile) → **the atlas requires
+  ≥4 heads.** Fig: `figures/ablation_oh_vs_dhead.png`.
+- **P3 (scale-invariance at fixed d_head):** at d_head=64, d_model 512 (n_head 8) → O_h 0.279 vs
+  d_model 768 (n_head 12) → O_h 0.281; **ΔO_h = 0.002 ≪ 0.02 band → fixed-point-like CONFIRMED.**
+  Fig: `figures/ablation_p3_scale.png`. Bonus: n_head 8→12 at fixed d_head did NOT move O_h → partial
+  evidence n_head is NOT the driver (points toward d_head; factorial batch-2 confirms).
+- **Combined picture:** d_head moves O_h, scale does not → O_h has an architectural control parameter
+  (d_head) and fixed-point-like behavior. First interventional (total-effect) result of the project.
+  Framing stays bounded: "consistent with an effective fixed point", NOT "universality class"; "d_head
+  parametrizes O_h", NOT "d_head causes the atlas" (n_head not yet fully excluded → batch-2).
+
 **Run-1 protocol revisions (2026-06-27) — recorded for faithful result comparison.** After run-1
 (d_head=32 ×2 valid, d_head=64 s42 produced O_h=0.275 but FAILED G0b), a Phase-1 re-read of
 Valeriani et al. (2302.00294) prompted two corrections. **Both runs (run-0/run-1) and any earlier
