@@ -21,7 +21,9 @@ Fisher basis (analogous to measuring in the Hamiltonian's eigenbasis)?"* — and
 attention: each head lives in its own low-dimensional (~7–11D) manifold, and these manifolds are
 mutually non-aligned (overlap O_h ≪ 1) across four autoregressive transformer families — GPT-2,
 Qwen2.5, Llama-3.1, Mistral. The existence is architecture-robust; the magnitude clusters by
-attention design (GPT-2/Qwen ≈ 0.28, Llama/Mistral ≈ 0.20)."*
+attention design (GPT-2/Qwen ≈ 0.28, Llama/Mistral ≈ 0.20). Training models from scratch and
+intervening on the head partition reproduces those clusters and shows O_h is scale-invariant at fixed
+d_head (fixed-point-like) — the head partition causally controls the overlap."*
 
 | Original hypothesis (refuted) | Surviving result (positive) |
 |---|---|
@@ -70,7 +72,7 @@ NQP/
 | [docs/research_questions.md](docs/research_questions.md) | Open research questions (Q01–Q06 and derivatives). |
 | [docs/retrospective_vs_original_goal.md](docs/retrospective_vs_original_goal.md) | What the results mean against the founding hypothesis, with the outcome stated plainly. |
 | [docs/figure_data.json](docs/figure_data.json) · [docs/phase2_results.json](docs/phase2_results.json) · [docs/phase2_control.json](docs/phase2_control.json) | Single sources of truth for the figures and the cross-architecture O_h runs (+ d_local control). |
-| [docs/figures/](docs/figures/) | The paper's 9 figures (6 main + 3 supplementary). Fig 1 = H×H overlap matrix (iconic); Fig 6 = O_h across architectures. |
+| [docs/figures/](docs/figures/) | The paper's figures. Fig 1 = H×H overlap matrix (iconic); Fig 6 = O_h across architectures; Fig 7 = ablation O_h vs d_head (trained from scratch). Plus `ablation_p3_scale.png` (scale-invariance) and `ablation_emergence.png` (P5). |
 
 ---
 
@@ -121,6 +123,7 @@ NQP/
 | [src/atlas_crossarch.py](src/atlas_crossarch.py) | **Cross-architecture O_h** with the GQA intra/inter-group pair split + per-model d_local + fixed-d_local control + depth×seed robustness. The Phase 1/2 driver. |
 | [src/atlas_intramodel.py](src/atlas_intramodel.py) | **Intra-model confounder control:** within one model, correlate each head's intrinsic dimension against its overlap (Spearman + permutation p). Discriminates d_head vs d_int as the cross-arch driver — without retraining. |
 | [src/atlas_dhead_control.py](src/atlas_dhead_control.py) | **Scale-is-not-the-lever control:** hold d_head fixed (GPT-2 family), vary size, measure O_h and the per-layer d_int profile at fixed *relative* depth. Separates peak from plateau d_int (per Valeriani [18]); shows O_h tracks the plateau, not scale. |
+| [src/ablation/](src/ablation/) | **Controlled ablation harness** (train/measure/experiments/results). Trains GPT-2-style LMs from scratch varying only d_head, with a maturation gate (Gate 0), P5 temporal-emergence snapshots, and resume-safe staged runs. Produced the causal result: d_head → O_h (P1), scale-invariance (P3), ≥4 heads required. |
 | [src/autoencoder.py](src/autoencoder.py) | **EXP-Q06:** per-head nonlinear autoencoder (64→7→64) vs PCA rank-7. Clean negative: the manifold is not functionally compressible by this route. |
 | [src/figure_data.py](src/figure_data.py) | Collects the figure data → `docs/figure_data.json`. |
 | [src/make_figures.py](src/make_figures.py) | Renders the 9 figures → `docs/figures/` (incl. Fig 6, cross-architecture). |
@@ -156,7 +159,7 @@ depth.
 | Bibliographic metadata confirmation | ⬜ Pending (reference manager; refs [17]–[23] flagged) |
 | Intra-model confounder control (d_head vs d_int) | ✅ Done — d_head is **confounded** with intrinsic dimension (Qwen ρ=−0.53, p=3e-4; GPT-2 same sign, n.s.). Lead demoted to "leading suspect" |
 | Scale-is-not-the-lever control (d_head fixed) | ✅ Done — across GPT-2 family (d_head=64, 12→36 layers) O_h (spread 0.002) and *plateau* d_int (0.15) are flat; only *peak* d_int grows (1.45). O_h tracks plateau d_int, not scale |
-| Architectural ablation — *what component sets O_h?* | ⬜ Open (d_head is the lead suspect, confounded with plateau-d_int; scale ruled out; ablation must vary d_head and measure plateau-d_int as mediator) |
+| **Architectural ablation (train from scratch, vary d_head)** | ✅ **Done — P1 + P3 confirmed.** Intervening on d_head reproduces the clusters (0.40/0.28/0.20) in scratch-trained models; O_h scale-invariant at fixed d_head (Δ=0.002, *fixed-point-like*); ≥4 heads required (256 degenerate). **Causal (total-effect) result.** d_head vs n_head + O_h→quality still open |
 
 ---
 

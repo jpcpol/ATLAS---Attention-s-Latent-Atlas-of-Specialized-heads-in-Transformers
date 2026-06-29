@@ -26,7 +26,11 @@ and clusters by attention design: GPT-2/Qwen sit near O_h ≈ 0.28 and Llama/Mis
 / 8-KV / d_head-128 attention) near O_h ≈ 0.20, with non-overlapping bootstrap intervals that widen
 under a fixed-dimensionality control. Within the GPT-2 family the overlap is additionally
 scale-invariant (statistically indistinguishable across a 6× change in model size) and
-corpus-invariant. Within this structure, each head's residual is a low-dimensional nonlinear manifold
+corpus-invariant. Moving from correlation to intervention, we **train models from scratch** varying
+only the head partition: the clusters reproduce (d_head 64 → 0.28, 128 → 0.20), O_h is invariant to
+scale at fixed d_head (*fixed-point-like*), and ≥ 4 heads are required for the régime to form —
+establishing the head partition's *causal* effect on the overlap (while leaving O_h → model quality
+untested). Within this structure, each head's residual is a low-dimensional nonlinear manifold
 — intrinsic dimension (TwoNN ≈ 7–11) far below its linear rank (PCA ≈ 30) — and head-centering does
 not collapse the union, so the heads are not one shared manifold seen through different offsets. We
 rule out the two obvious linear stories (sparse selection and global low-rank compression)
@@ -376,7 +380,34 @@ instead. Across the GPT-2 family (d_head = 64 throughout, 12 → 36 layers), mea
 intrinsic dimension grows with size (spread 1.45, as [18] report). Within a fixed head dimension,
 model size moves neither the plateau d_int nor O_h. So the d_head↔(plateau-)d_int↔O_h coupling is not
 a scale effect, and O_h tracks the plateau intrinsic dimension rather than the peak — sharpening the
-eventual ablation to d_head itself (Appendix F).
+ablation to d_head itself (Appendix F).
+
+**The controlled ablation (from correlation to intervention).** All of the above is observational —
+measured on *pretrained* models, where d_head, n_head, scale, and corpus co-vary. To test whether the
+clustering is an *effect of the architecture* rather than a correlate, we train small decoder-only LMs
+from scratch on WikiText-103, identical in every axis but the head partition, and intervene on d_head
+∈ {32, 64, 128} (d_model = 512, 12 layers, ≈ 64M params each, two seeds; measured at the compressed
+plateau rel 0.5 per [18]). A maturation gate (Appendix G) excludes models whose depth régime has not
+formed, so a flat O_h means "d_head did not move it", not "the model never built an atlas".
+
+| d_head (n_head) | O_h (k=7), trained from scratch | cross-arch cluster |
+|---|---|---|
+| 32 (16) | 0.40 | — (below the 64 cluster) |
+| 64 (8)  | 0.279 | GPT-2/Qwen ≈ 0.28 |
+| 128 (4) | 0.197 | Llama/Mistral ≈ 0.20 |
+
+The intervention reproduces the cross-architecture clusters **in models trained from scratch**: O_h
+decreases monotonically with d_head and lands on the same 0.28 / 0.20 values measured in the pretrained
+families (Figure 7). Two further controls: (i) a **scale-invariance** test at fixed d_head = 64,
+d_model 512 → 768 (n_head 8 → 12) leaves O_h unchanged (0.279 → 0.281, ΔO_h = 0.002) — *fixed-point-like
+behaviour*: O_h responds to the attention design but not to model scale; (ii) d_head = 256 (n_head = 2)
+fails the maturation gate in both seeds — with two heads the depth régime is degenerate, so **the atlas
+requires ≥ 4 heads to form**. We state the result at the strength the design licenses: this establishes
+the *total effect* of the (d_head, n_head) intervention on O_h — a causal, not correlational, statement
+— while remaining agnostic on whether d_head itself or the head count is the operative knob (their
+factorial separation is deferred), and explicitly **not** addressing O_h → model quality. We describe
+the régime as *fixed-point-like*, not a "universality class", which would require RG flows and an
+identified relevant operator we have not demonstrated.
 
 We therefore promote the claim to its architecture-aware form:
 
@@ -582,19 +613,17 @@ structure *across* heads despite their non-aligned charts; exploitation that tar
 *global* geometry rather than a per-point bottleneck; and asking whether the residual is better
 described as high-entropy integration noise (cf. §3.5) than as a compressible code at all.
 
-**What controls the magnitude? (the new central question).** §3.1b answers the existence question
-(the atlas generalizes) and *replaces* it with a sharper one: the overlap magnitude clusters by
-attention design, so **which architectural component sets O_h?** Our four points already give a
-lead — GPT-2 (d_head 64) and Qwen (d_head 64) sit near 0.28 while Llama/Mistral (d_head 128) sit near
-0.20, even though Qwen already has GQA/RoPE/RMSNorm — making **head dimension** the leading suspect
-over the mere presence of GQA. But a within-model control (§3.1b, Appendix F) shows d_head is
-confounded with each head's intrinsic dimension, which itself predicts overlap head-by-head in at
-least one family. The ablation must therefore vary d_head while tracking d_int as a mediator, not
-treat d_head as the isolated cause. A controlled ablation over {MHA↔GQA, number of KV heads, d_head,
-RoPE↔learned, RMSNorm↔LayerNorm} on matched-scale models would isolate the driver. Caveat (the NQP
-lesson): this would establish *architecture → O_h* (mechanistic, tractable), **not** *O_h → model
-quality* (interventional, requires retraining) — two distinct causal questions that must not be
-conflated.
+**What controls the magnitude — partially answered (§3.1c), and what remains.** §3.1b raised the
+sharper question — *which architectural component sets O_h?* — and the controlled ablation (§3.1c)
+answered the first half: intervening on the head partition of trained-from-scratch models reproduces
+the cross-arch clusters (d_head 64 → 0.28, 128 → 0.20), and O_h is invariant to scale at fixed d_head
+(fixed-point-like). This establishes *(d_head, n_head) → O_h* as a **total causal effect**, not a
+correlation. What remains open: (a) **d_head vs n_head** — at fixed d_model they are locked, so a
+factorial design varying d_model is needed to say which is the operative knob (a no-retraining scale
+control already shows n_head 8→12 at fixed d_head does *not* move O_h, weakly favouring d_head); (b)
+the other axes {MHA↔GQA, RoPE↔learned, RMSNorm↔LayerNorm}, held fixed in this batch. Caveat (the NQP
+lesson): §3.1c establishes *architecture → O_h* (mechanistic, now demonstrated), **not** *O_h → model
+quality* (interventional, untested) — two distinct causal questions that must not be conflated.
 
 **Other directions.** (i) Cross-*paradigm* generalization beyond autoregressive decoders (encoder,
 encoder–decoder, state-space). (ii) Promoting "atlas" toward a formal claim by *measuring transition
@@ -733,6 +762,45 @@ intrinsic dimension, not the peak — so among the two d_int notions the relevan
 plateau where O_h is measured. This does not break the d_head/d_int confound, but it rules scale out as
 the lever and points the matched-scale ablation at d_head. Code: `src/atlas_dhead_control.py`; data:
 `docs/dhead_control.json`.
+
+## Appendix G — The controlled ablation (training from scratch)
+
+**Models.** Decoder-only GPT-2-style LMs trained from scratch on WikiText-103 (20M-token budget),
+identical in every axis but the head partition of a fixed d_model: d_model = 512, 12 layers, FFN = 4×,
+context 256, learned positions, LayerNorm, GPT-2 BPE. At fixed d_model the Q/K/V/O projections are
+d_model×d_model regardless of the head split, so all d_head variants have **identical parameter counts**
+(≈ 64M) — the head partition is the only thing that changes. d_head ∈ {32, 64, 128, 256} (n_head =
+16/8/4/2), two seeds (42, 123), 6000 steps, AdamW + cosine, fp16. Scale control (P3): fixed d_head=64,
+d_model ∈ {512, 768} (n_head 8/12), same depth.
+
+**Measurement depth (diverges from the pretrained protocol — stated explicitly).** Per [18], the
+minimum-ID / semantic plateau — the cleanest geometric régime — sits at relative depth ~0.4–0.5, while
+rel ~0.9 is the *final-ascent* phase. The ablation therefore measures O_h and plateau-d_int in a
+3-layer window centred on **rel 0.5**, whereas the cross-architecture results (§3.1b) used the deepest
+layers. Ablation O_h is thus compared *across d_head within the rel-0.5 protocol*, not 1:1 to the
+pretrained deep-layer 0.28/0.20 numbers; the within-protocol contrast is what the predictions test.
+
+**Maturation gate (validity, not a result).** A from-scratch model can show a flat or degenerate O_h
+because it is *under-trained*, which would be a false negative. Before O_h counts toward a prediction,
+each model must pass: G0a converged LM (val-loss curve flattened, in a sane range); G0b depth régime
+present (per-layer ID profile shows an expansion→compression bump — decided on peak-minus-minimum, with
+an early-peak check, since [18]'s final ascent makes peak-minus-endpoints a false-negative); G0c
+residual collectible (adequate N, all heads); G0d base atlas (O_h ≪ 1). A model failing the gate is
+**INVALID, not a refutation** — its O_h is excluded, not counted against d_head.
+
+**Results.** d_head 32/64/128 pass the gate in both seeds; O_h = 0.40 / 0.279 / 0.197 (Figure 7),
+reproducing the cross-arch clusters. d_head = 256 (n_head = 2) FAILS G0b in both seeds — the depth
+profile is anomalous (late peak, no compression); with two heads there is exactly one inter-head pair
+and the régime is degenerate, so the atlas requires ≥ 4 heads. Scale control: O_h(512) = 0.279 vs
+O_h(768) = 0.281, ΔO_h = 0.002 (fixed-point-like). Code: `src/ablation/` (train/measure/experiments/
+results); data: `docs/ablation_batch1/`, `docs/ablation_p3/`.
+
+![Figure 7: ablation O_h vs d_head](figures/ablation_oh_vs_dhead.png)
+
+**Figure 7.** Inter-head O_h vs d_head in models trained from scratch (rel 0.5, two seeds). Points land
+on the cross-architecture clusters (dashed: 0.28 for d_head 64, 0.20 for d_head 128), reproducing the
+pretrained magnitudes by intervention. (Inset/companion: `figures/ablation_p3_scale.png` — O_h
+invariant to scale at fixed d_head; `figures/ablation_emergence.png` — P5 temporal emergence.)
 
 ## Appendix C — Reproducibility
 

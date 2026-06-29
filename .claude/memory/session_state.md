@@ -70,12 +70,23 @@ Coherente con la memoria persistente de AICR. Para el Día 2: notebook nuevo, NO
   ARREGLAR umbral), OBS-B (s123>s42 plateau-d_int 3/3 válidos, p≈0.125 → batch-2 más seeds),
   OBS-C (ubicación pico d_int). Todas en H-TEMP diferido.
 
-**P3 (scale-control) EN CURSO — fixed-point-like.** d_head=64 fijo, d_model 512 vs 768, out-dir
-SEPARADO `ablation_p3`. Hoy: d_model=512 hecho (O_h=0.279 ✅, reproduce batch-1). MAÑANA: solo
-d_model=768 (--resume salta el 512). Veredicto: si |O_h(768)−0.279|<0.02 → fixed-point-like (decir
-"consistente con punto fijo efectivo", NO "universality class"). Covariable: 512→768 mueve n_head 8→12
-(conocida-robusta por cross-arch). Comando mañana: `run_batch1.py --mode scale_control --device cuda
---steps 6000 --out-dir /content/atlas/docs/ablation_p3` (NO borrar dir, NO rm).
+**P3 (scale-control) ✅ CERRADO (2026-06-29) — fixed-point-like CONFIRMADO.** d_head=64 fijo:
+d_model=512 (n_head 8) O_h=0.279 vs d_model=768 (n_head 12) O_h=0.281, **ΔO_h=0.002** ≪ banda 0.02.
+O_h invariante a la escala a d_head fijo. Bonus: n_head 8→12 no movió O_h → evidencia parcial de que
+n_head NO es el driver (apunta a d_head). 4 JSON en docs/ablation_p3/, fig ablation_p3_scale.png.
+
+**DOCUMENTACIÓN INTEGRADA (2026-06-29).** P1+P3 integrados en TODOS los docs:
+- paper_draft.md: Abstract (+frase interventiva), §3.1c (nueva, ablation), §7 (Future Work actualizado
+  — ablation ya NO es "futuro"), Appendix G (nuevo, protocolo+Gate0+Fig7).
+- README.md: Status, tabla src (+ablation/), blockquote/arc, figuras.
+- wiki nqp-atlas.md: sección ablation completa + tabla de estado.
+- 3 figuras: ablation_oh_vs_dhead.png, ablation_p3_scale.png, ablation_emergence.png.
+PENDIENTE COMMIT de toda la doc + figuras P3.
+
+**SIGUIENTE: BATCH-2** (decisión usuario: ciclo AICR completo — búsqueda→análisis→diseño→desarrollo→test).
+Etapa 1 (barato): más seeds (4-6) → consolida P1 + resuelve OBS-B. Etapa 2 (caro, factorial): d_head×n_head
+vía d_model → desenreda d_head de n_head + d_head=256 con ≥4 heads (modo neutral). Plan en
+ablation_design.md §4.6.
 
 
 ## Resultado central de esta sesión — arco cross-architecture CERRADO
