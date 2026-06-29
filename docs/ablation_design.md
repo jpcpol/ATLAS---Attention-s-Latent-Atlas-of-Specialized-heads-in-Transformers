@@ -252,6 +252,16 @@ pre-register a test.** Recorded here so they are not lost and not silently promo
   count as "changing with d_head", the between-d_head difference must clearly exceed the ~1.2
   within-d_head seed spread — the same within-vs-between discipline used in the cross-arch work.
 
+- **OBS-C (temporal location of the plateau-d_int peak; the "O_h peak" is NOISE).** Noticed that the
+  plateau-d_int *peak* seems to occur at different training fractions across runs (d_head=64 s123 peaks
+  ~25 %, d_head=128 s42 peaks ~50 %). **Important caveat established by the analyst:** the apparent
+  "O_h peak" that prompted this is NOT real — O_h varies by ±0.004–0.009 across snapshots, the size of
+  the N=600 measurement noise, so O_h is flat-plus-noise with no peak (correlating O_h's noise with
+  d_int's real peak is a spurious-coincidence trap, correctly rejected). What MAY be real: the
+  plateau-d_int peak location varies — but with 1 seed per high-d_head and d_int being seed-noisy
+  (OBS-B), this cannot separate "peak moves with d_head" from "peak moves with seed". Requires both
+  seeds × several d_head. Folds into the H-TEMP line as a sub-question.
+
 **Status (2026-06-27):** AICR cycle for OBS-A/B advanced through **Phase 1 (search) + Phase 3 (second
 opinion)**; pre-registration + test (Phase 4+) **deferred until the main ablation closes** (P1 with
 128/256, then P3) — keep focus on the pre-registered lines first. Captured below so the cycle resumes
@@ -292,6 +302,44 @@ Three tests: **T1** step-0 measurement + random baseline (no training — cheap,
 **T2** full temporal evolution (already collected via P5); **T3** init-sensitivity. Secondary line,
 not a new project. The current batch's `aggregate.py` already supplies the T2 raw evidence
 (emergence order + per-d_head seed spread).
+
+## 4.6 Batch-2 plan (decided 2026-06-29; DETAILED design deferred until batch-1 closes)
+
+Batch-1 confirmed P1 (O_h 0.40→0.28→0.20 across d_head 32/64/128, two clusters reproduced from
+scratch). Decision: run batch-2 **in two stages, cheap-then-expensive** (validate before spending).
+Detailed pre-registration written only after batch-1 + P3 close — this is the skeleton.
+
+- **Stage 1 — MORE SEEDS of batch-1 (cheap, consolidation).** Re-run the 4 d_head with **4–6 seeds**
+  (vs 2). Tightens P1 CIs and, crucially, **resolves OBS-B with rigour**: is the s123 > s42
+  plateau-d_int bias real (3/3 so far, p≈0.125) or chance? With 4–6 seeds the seed effect is
+  measurable. Also tests OBS-C (does the d_int-peak location move with d_head, or is it seed-driven?).
+  Same small models, just more runs → fits short GPU sessions, resume-safe.
+- **Stage 2 — FACTORIAL d_head × n_head (expensive, disentangles).** A 2-D grid varying d_model
+  (e.g. 512/768/1024) so that **d_head and n_head can be separated** — the question batch-1 cannot
+  answer (they are locked at fixed d_model). Cells like {d_model 512, n_head 4, d_head 128} vs
+  {d_model 1024, n_head 8, d_head 128} (same d_head, different n_head) vs {d_model 1024, n_head 16,
+  d_head 64} (same n_head, different d_head). Answers: **is O_h moved by d_head or by n_head?** Run
+  only if Stage 1 keeps P1 solid. Keep d_model modest (≤768–1024) to bound compute.
+
+**On d_head=256 (n_head=2) — batch-1 result: Gate 0 FAILED (régime is degenerate, not just
+under-founded).** Two problems are CONFOUNDED at d_model=512: (a) one inter-head pair (sampling — not
+a population property; more seeds do NOT fix it), and (b) Gate 0 G0b failed — the depth profile is
+anomalous (late peak at rel 0.6, not the early-peak expansion→compression régime; correctly flagged
+INVALID by the Valeriani early-peak check). O_h also decays monotonically (0.15→0.13), breaking OBS-A.
+With 2 heads there is no "population of subspaces" to organize → a degenerate régime.
+
+**→ d_head=256 is now a PRIORITY case for the Stage-2 factorial** (not to be chased with more seeds).
+The factorial disentangles the two confounded problems: {d_model 1024, n_head 4, d_head 256} (6 pairs)
+and {d_model 2048, n_head 8, d_head 256} (28 pairs) test whether d_head=256 is pathological **because
+it is d_head=256** or **because n_head=2**. If the atlas forms healthily at d_head=256 with 4–8 heads
+and O_h follows the pendiente → the problem was n_head=2, and P1 extends cleanly to a 4th point. If it
+stays pathological with more heads → d_head=256 is a genuinely distinct régime. **Enter neutral: the
+factorial TESTS the cause, it does not aim to "rescue" the point** (entering to rescue would bias the
+read — anti-overclaim). Both outcomes are valid results.
+
+**Batch-1 P1 stands on the 3 VALID points (32/64/128).** d_head=256 exits §4 as INVALID via Gate 0,
+not as a curve point — the gate again excluding a spurious 4th point (a degenerate régime) exactly as
+designed. Observation worth keeping: *the atlas may require ≥4 heads to form a healthy depth régime.*
 
 ## 5. What this does and does NOT establish (scope, anti-NQP)
 

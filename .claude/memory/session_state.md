@@ -58,6 +58,25 @@ experiments/results). Corre con `python run_batch1.py --mode batch1 --device cud
 propio notebook → queda como registro inmutable de la prueba (output completo, qué se corrió, cuándo).
 Coherente con la memoria persistente de AICR. Para el Día 2: notebook nuevo, NO reusar el del Día 1.
 
+**BATCH-1 CERRADO (2026-06-29) — P1 CONFIRMADO.** Todos en rel 0.5, 12 capas, 2 seeds:
+- d_head=32 → O_h 0.403/0.402 ✅✅ | 64 → 0.278/0.280 ✅✅ | 128 → 0.202/0.191 ✅✅
+- **256 → INVÁLIDO ambos seeds** (Gate 0 G0b: perfil patológico, pico tardío rel 0.6-0.8, NO
+  expansión→compresión). Régimen degenerado de 2 heads. Hallazgo: **el atlas requiere ≥4 heads.**
+- Curva O_h vs d_head clava los clusters cross-arch (fig docs/figures/ablation_oh_vs_dhead.png).
+  Primer resultado NO-correlacional: architecture→O_h intervenible. NO "d_head causa" (confundido
+  con n_head→batch-2), NO O_h→calidad.
+- 8 JSON en docs/ablation_batch1/, 2 figuras en docs/figures/ablation_*.png. PENDIENTE COMMIT.
+- OBS-A (d_int madura al 25%; orden vs O_h indecidible — métrica frac@90 mide ruido en O_h plano,
+  ARREGLAR umbral), OBS-B (s123>s42 plateau-d_int 3/3 válidos, p≈0.125 → batch-2 más seeds),
+  OBS-C (ubicación pico d_int). Todas en H-TEMP diferido.
+
+**P3 (scale-control) EN CURSO — fixed-point-like.** d_head=64 fijo, d_model 512 vs 768, out-dir
+SEPARADO `ablation_p3`. Hoy: d_model=512 hecho (O_h=0.279 ✅, reproduce batch-1). MAÑANA: solo
+d_model=768 (--resume salta el 512). Veredicto: si |O_h(768)−0.279|<0.02 → fixed-point-like (decir
+"consistente con punto fijo efectivo", NO "universality class"). Covariable: 512→768 mueve n_head 8→12
+(conocida-robusta por cross-arch). Comando mañana: `run_batch1.py --mode scale_control --device cuda
+--steps 6000 --out-dir /content/atlas/docs/ablation_p3` (NO borrar dir, NO rm).
+
 
 ## Resultado central de esta sesión — arco cross-architecture CERRADO
 
