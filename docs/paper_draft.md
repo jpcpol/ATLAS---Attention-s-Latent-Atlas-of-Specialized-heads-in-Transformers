@@ -574,6 +574,21 @@ measure subspace geometry of the residual, not output similarity, and report non
 than redundancy. Our models are GPT-2 [14], Qwen2.5 [20], Llama-3.1 [21], and Mistral [22]; GQA
 itself is from Ainslie et al. [23].
 
+**Head dimension vs. head count.** Whether per-head dimension or the number of heads governs attention
+behaviour is studied along several axes, but not for our residual overlap. Inter-head diversity has
+been quantified with SVCCA/CKA on attention patterns [24], and a large literature documents head
+redundancy (a majority of heads prunable with little loss). The two recent positions most relevant to
+our §3.1c are in tension: a capacity rationale for multi-head attention [25] argues that distributing
+the budget across *more, smaller* heads reduces interference and increases the number of cleanly
+separable relations, whereas an analysis of massive activations and attention sinks [26] finds *larger*
+head dimension is the dominant factor for the geometric separation of *sink* keys (a monotone effect
+from d_head 8→128). We emphasize that [26] concerns sink-key separation, a *distinct* object from our
+inter-head residual overlap O_h; we cite it for the geometric-separation mechanism, not as evidence
+about O_h. Our ablation (§3.1c) shows the (d_head, n_head) intervention moves O_h, but — unlike these
+works — we deliberately leave the d_head-vs-n_head decomposition to a follow-up factorial, since at
+fixed d_model the two are confounded. The intrinsic-dimension training dynamics we touch on (§3.1c,
+Appendix F) follow the expand-then-contract pattern reported by Ansuini et al. [27].
+
 Anticipated objection — *"isn't this just intrinsic dimension applied to activations?"* The answer
 is the *system* of evidence: scale-invariance (§3.1, §3.3) + refutation of the linear stories (§3.5)
 + the inter-head non-alignment that no single dimensionality measurement captures (§3.1). No single
@@ -930,3 +945,17 @@ arXiv:2407.21783, 2024.
 [23] J. Ainslie, J. Lee-Thorp, M. de Jong, Y. Zemlyanskiy, F. Lebrón, S. Sanghai. "GQA: Training
 generalized multi-query transformer models from multi-head checkpoints." *Proc. EMNLP*, 2023.
 arXiv:2305.13245.
+
+[24] "Analyzing and controlling inter-head diversity in multi-head attention." *Applied Sciences*
+11(4):1548, 2021. [verify — authors to confirm in reference manager]
+
+[25] "A capacity-based rationale for multi-head attention." arXiv:2509.22840, 2025. [verify —
+authors/venue to confirm in reference manager]
+
+[26] "The spike, the sparse and the sink: anatomy of massive activations and attention sinks."
+arXiv:2603.05498, 2026. [verify — authors/venue to confirm; cited for sink-key geometric separation,
+a phenomenon distinct from our inter-head residual overlap]
+
+[27] A. Ansuini, A. Laio, J. H. Macke, D. Zoccolan. "Intrinsic dimension of data representations in
+deep neural networks." *Advances in Neural Information Processing Systems (NeurIPS)*, 2019.
+arXiv:1905.12784.

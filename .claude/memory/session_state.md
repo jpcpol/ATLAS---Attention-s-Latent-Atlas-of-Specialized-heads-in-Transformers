@@ -83,10 +83,31 @@ n_head NO es el driver (apunta a d_head). 4 JSON en docs/ablation_p3/, fig ablat
 - 3 figuras: ablation_oh_vs_dhead.png, ablation_p3_scale.png, ablation_emergence.png.
 PENDIENTE COMMIT de toda la doc + figuras P3.
 
-**SIGUIENTE: BATCH-2** (decisión usuario: ciclo AICR completo — búsqueda→análisis→diseño→desarrollo→test).
-Etapa 1 (barato): más seeds (4-6) → consolida P1 + resuelve OBS-B. Etapa 2 (caro, factorial): d_head×n_head
-vía d_model → desenreda d_head de n_head + d_head=256 con ≥4 heads (modo neutral). Plan en
-ablation_design.md §4.6.
+**CICLO AICR BATCH-2 (Fase 1+3 hechas, 2026-06-29) — VEREDICTO: factorial = PAPER-2, NO bloquea Paper-1.**
+- Fase 1 (literatura): la pregunta d_head-vs-n_head se estudia para performance/sinks/capacity, NO para
+  nuestro O_h del residuo. "d_head dominant 8→128" se rastreó a un paper de SINKS (2603.05498) =
+  fenómeno DISTINTO, casi mal-citado (control NQP lo atrapó). Literatura en tensión: sinks (fewer-larger
+  → más separación) vs capacity (2509.22840: more-small → menos interferencia) → el factorial puede
+  ARBITRAR. Novedad genuina.
+- Fase 3 (ChatGPT): el factorial vale pero NO es requisito para publicar; riesgo estratégico de esperar.
+  Plan: (a) observacional GRATIS en Llama/Mistral (O_h vs distancia/grupo); (b) MINI-factorial 3 modelos
+  {512/8/64, 1024/16/64, 1024/8/128}; (c) completo solo si señal fuerte. Wording acotado mantenido.
+- **DECISIÓN: congelar+publicar Paper-1 ahora; factorial = Paper-2.** Plan en ablation_design.md §4.6.
+
+**PAPER CONSOLIDADO (2026-06-29) — listo para publicar.** Refs nuevas integradas:
+- §5 Related Work: párrafo nuevo "head dim vs head count" (refs [24]-[27]). [24] SVCCA/CKA diversity,
+  [25] capacity rationale, [26] sinks (CON la distinción: cited for separation mechanism, NOT as
+  evidence about O_h — anti-NQP), [27] Ansuini ID dynamics.
+- docs/references_consulted.md: trail de TODAS las refs consultadas (qué fundamentó qué).
+- README: índice docs (+ablation_design, +references_consulted).
+
+**PUBLICACIÓN — decisión usuario (2026-06-29):**
+- **Zenodo PRIMERO** (DOI, sin endorsement, prioridad; el usuario ya tiene investigaciones ahí).
+- **arXiv por vía LEGÍTIMA después** (NO pedir endorsement a autores citados — riesgo ético de
+  instrumentalizar la cita; si se necesita endorsement, de alguien con relación real).
+- **Networking con autores citados** = compartir el preprint cuando esté público, SIN pedir favores.
+- PENDIENTE COMMIT: paper (Abstract/§3.1c/§5/§7/App G/refs), README, wiki, references_consulted.md,
+  ablation_design §4.6, figuras. Luego: armar el record de Zenodo (preprint + código + datos JSON).
 
 
 ## Resultado central de esta sesión — arco cross-architecture CERRADO

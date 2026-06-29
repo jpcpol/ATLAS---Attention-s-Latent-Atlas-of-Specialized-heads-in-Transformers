@@ -68,6 +68,8 @@ NQP/
 |---|---|
 | [docs/paper_draft.md](docs/paper_draft.md) | **Complete preprint.** Central result: an atlas of non-aligned head-specific manifolds across four autoregressive families (O_h ≪ 1; magnitude clusters by attention design). §0 ties results to the original objective; §3.1b is the cross-architecture result; §5 Related Work, refs [1]–[23]. **Start here.** |
 | [docs/cross_architecture_plan.md](docs/cross_architecture_plan.md) | Cross-architecture research + roadmap: prior-work positioning, GQA obstacles, staged Phase 0–3 with gates, and the recorded Phase 0/1/2 + d_local-control results (Case B). |
+| [docs/ablation_design.md](docs/ablation_design.md) | Pre-registered ablation (P1–P5, Gate 0), the run-1 protocol revisions, the confirmed P1+P3 results, OBS-A/B/C, and the batch-2 plan (factorial = paper-2). |
+| [docs/references_consulted.md](docs/references_consulted.md) | Decision trail: every paper consulted across the AICR cycles, what it grounded, and whether it is cited / to-integrate / context. |
 | [docs/paper_skeleton.md](docs/paper_skeleton.md) | Earlier paper skeleton (thermodynamic structure + intrinsic geometry). |
 | [docs/research_questions.md](docs/research_questions.md) | Open research questions (Q01–Q06 and derivatives). |
 | [docs/retrospective_vs_original_goal.md](docs/retrospective_vs_original_goal.md) | What the results mean against the founding hypothesis, with the outcome stated plainly. |

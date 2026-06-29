@@ -317,11 +317,35 @@ Three tests: **T1** step-0 measurement + random baseline (no training — cheap,
 not a new project. The current batch's `aggregate.py` already supplies the T2 raw evidence
 (emergence order + per-d_head seed spread).
 
-## 4.6 Batch-2 plan (decided 2026-06-29; DETAILED design deferred until batch-1 closes)
+## 4.6 Batch-2 plan — DECIDED via AICR cycle (2026-06-29): factorial is PAPER-2, not a blocker
 
-Batch-1 confirmed P1 (O_h 0.40→0.28→0.20 across d_head 32/64/128, two clusters reproduced from
-scratch). Decision: run batch-2 **in two stages, cheap-then-expensive** (validate before spending).
-Detailed pre-registration written only after batch-1 + P3 close — this is the skeleton.
+Batch-1 + P3 are complete (P1 + scale-invariance confirmed). A full AICR cycle (Phase-1 literature +
+Phase-3 adversarial cross-check) decided the path for the d_head-vs-n_head question:
+
+- **The factorial is worth doing but is NOT required to publish the current paper.** The current work
+  has a complete arc (existence → robustness → architectural magnitude → causal intervention). The
+  factorial answers a *deeper* question ("which knob is the control parameter?") → **Paper-2**, not a
+  gate on Paper-1. Strategic risk of waiting: an ambiguous or months-long factorial would delay a
+  mature result. **Decision: freeze + publish Paper-1 now; factorial as a follow-up.**
+- **Literature check (Phase 1):** the d_head-vs-n_head question is studied for *performance/sinks/
+  capacity*, NOT for our residual O_h. An attractive "d_head dominant (8→128)" claim traced to a
+  **sinks** paper (2603.05498) — a DIFFERENT phenomenon; nearly mis-cited, caught by source-tracing.
+  The literature is in TENSION (sinks: fewer-larger → more separation; capacity rationale 2509.22840:
+  more-small → less interference) → our factorial can ARBITRATE this for O_h. Genuine novelty.
+- **Cheapest first (Phase 3, ChatGPT):** before training anything, an **observational, zero-cost**
+  check inside Llama/Mistral — does O_h vary systematically with head distance / group membership /
+  effective group size? Gives a hint on whether n_head is involved, no training.
+- **Then a MINI-factorial of 3 models** (not 8): {512, n_head 8, d_head 64}, {1024, 16, 64} (same
+  d_head, diff n_head), {1024, 8, 128} (same n_head, diff d_head). Expand to the full grid **only if
+  the signal is strong**. Avoids the space-explosion risk (d_model × n_head × d_head × depth).
+- Wording stays bounded: "candidate control parameter" / "principal suspect", NOT "relevant operator".
+
+(Stage-1 "more seeds" — see below — remains a cheap consolidation that also resolves OBS-B/C; run it
+if/when convenient, independent of the factorial.)
+
+### Skeleton (retained from the earlier 2-stage plan)
+
+Decision: run batch-2 **in two stages, cheap-then-expensive** (validate before spending).
 
 - **Stage 1 — MORE SEEDS of batch-1 (cheap, consolidation).** Re-run the 4 d_head with **4–6 seeds**
   (vs 2). Tightens P1 CIs and, crucially, **resolves OBS-B with rigour**: is the s123 > s42
